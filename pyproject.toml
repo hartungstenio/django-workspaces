@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
@@ -33,7 +33,7 @@ Issues = "https://github.com/hartungstenio/django-workspaces/issues"
 Source = "https://github.com/hartungstenio/django-workspaces"
 
 [tool.hatch.version]
-path = "src/django_workspaces/__about__.py"
+source = "vcs"
 
 [tool.hatch.envs.types]
 extra-dependencies = [
