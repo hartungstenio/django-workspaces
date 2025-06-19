@@ -63,28 +63,62 @@ exclude_lines = [
   "if TYPE_CHECKING:",
 ]
 
+[tool.django-stubs]
+django_settings_module = "demo.settings"
+
 [tool.hatch.version]
 source = "vcs"
+
+[[tool.hatch.envs.all.matrix]]
+python = ["3.10", "3.11", "3.12", "3.13"]
 
 [tool.hatch.envs.default]
 dependencies = [
   "coverage[toml]>=6.5",
+  "django-stubs",
+  "mypy",
   "pytest",
   "pytest-asyncio",
   "pytest-deadfixtures",
-  "django-stubs",
+  "pytest-django",
 ]
 
-[tool.hatch.envs.types]
-extra-dependencies = [
-  "mypy>=1.0.0",
+[tool.hatch.envs.default.scripts]
+types = "mypy --install-types --non-interactive {args:src/django_workspaces tests}"
+test = "pytest {args:tests}"
+test-cov = "coverage run -m pytest {args:tests}"
+cov-report = [
+  "- coverage combine",
+  "coverage report",
+]
+cov = [
+  "test-cov",
+  "cov-report",
 ]
 
-[tool.hatch.envs.types.scripts]
-check = "mypy --install-types --non-interactive {args:src/django_workspaces tests}"
+[tool.hatch.envs.hatch-test]
+extra-dependencies = ["pytest-django"]
+
+[tool.hatch.envs.hatch-test.overrides]
+matrix.django.dependencies = [
+  { value = "django>=5.2,<5.3", if = ["5.2"] },
+]
+
+[[tool.hatch.envs.hatch-test.matrix]]
+django = ["5.2"]
+python = ["3.10", "3.11", "3.12", "3.13"]
 
 [tool.hatch.envs.hatch-static-analysis]
 config-path = "none"
+dependencies = ["ruff==0.12.0"]
+
+[tool.mypy]
+strict = true
+plugins = ["mypy_django_plugin.main"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "demo.settings"
+pythonpath = [".", "src"]
 
 [tool.ruff]
 line-length = 120
@@ -151,4 +185,7 @@ convention = "pep257"
 ban-relative-imports = "parents"
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*.py" = ["D104"]
+"*/models.py" = ["D106"]
+"*/migrations/*.py" = ["D", "RUF012"]
+"tests/*.py" = ["D104", "S101"]
+"demo/*" = ["D"]
