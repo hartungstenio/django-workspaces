@@ -97,7 +97,7 @@ cov = [
 ]
 
 [tool.hatch.envs.hatch-test]
-extra-dependencies   = ["pytest-django"]
+extra-dependencies = ["pytest-django"]
 
 [tool.hatch.envs.hatch-test.overrides]
 matrix.django.dependencies = [
@@ -110,6 +110,7 @@ python = ["3.10", "3.11", "3.12", "3.13"]
 
 [tool.hatch.envs.hatch-static-analysis]
 config-path = "none"
+dependencies = ["ruff==0.12.0"]
 
 [tool.mypy]
 strict = true
