@@ -1,0 +1,62 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "django-workspaces"
+dynamic = ["version"]
+description = 'Django reusable app to manage user workspaces'
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "Christian Hartung", email = "hartung@live.com" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = [
+  "django"
+]
+
+[project.urls]
+Documentation = "https://github.com/hartungstenio/django-workspaces#readme"
+Issues = "https://github.com/hartungstenio/django-workspaces/issues"
+Source = "https://github.com/hartungstenio/django-workspaces"
+
+[tool.hatch.version]
+path = "src/django_workspaces/__about__.py"
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+  "mypy>=1.0.0",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/django_workspaces tests}"
+
+[tool.coverage.run]
+source_pkgs = ["django_workspaces", "tests"]
+branch = true
+parallel = true
+omit = [
+  "src/django_workspaces/__about__.py",
+]
+
+[tool.coverage.paths]
+django_workspaces = ["src/django_workspaces", "*/django-workspaces/src/django_workspaces"]
+tests = ["tests", "*/django-workspaces/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
