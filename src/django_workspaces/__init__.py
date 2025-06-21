@@ -4,27 +4,18 @@
 active workspace. Anything can be added to a workspace.
 """
 
-from typing import TYPE_CHECKING, TypeAlias
-
 import django_stubs_ext
 from django.apps import apps as django_apps
 from django.conf import settings
+from django.http import HttpRequest
 
-if TYPE_CHECKING:
-    from .models import AbstractWorkspace
+from .types import _Workspace, _WorkspaceModel
 
 django_stubs_ext.monkeypatch()
 
 __all__ = [
     "get_workspace_model",
 ]
-
-_Workspace: TypeAlias = "AbstractWorkspace"
-"""Placeholder type for the current workspace.
-
-The mypy plugin will refine it someday."""
-
-_WorkspaceModel: TypeAlias = type[_Workspace]
 
 
 def get_workspace_model() -> _WorkspaceModel:
@@ -35,3 +26,13 @@ def get_workspace_model() -> _WorkspaceModel:
     """
     workspace_model_name: str = getattr(settings, "WORKSPACE_MODEL", "django_workspaces.Workspace")
     return django_apps.get_model(workspace_model_name, require_ready=False)
+
+
+def get_workspace(request: HttpRequest) -> _Workspace:
+    """Return the workspace model instance associated with the given request."""
+    raise NotImplementedError
+
+
+async def aget_workspace(request: HttpRequest) -> _Workspace:
+    """Async version of :func:`get_workspace`."""
+    raise NotImplementedError
