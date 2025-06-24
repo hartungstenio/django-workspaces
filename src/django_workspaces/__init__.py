@@ -8,14 +8,19 @@ import django_stubs_ext
 from django.apps import apps as django_apps
 from django.conf import settings
 from django.http import HttpRequest
+from django.shortcuts import aget_object_or_404, get_object_or_404
 
 from .types import _Workspace, _WorkspaceModel
 
 django_stubs_ext.monkeypatch()
 
 __all__ = [
+    "aget_workspace",
+    "get_workspace",
     "get_workspace_model",
 ]
+
+SESSION_KEY = "_workspace_id"
 
 
 def get_workspace_model() -> _WorkspaceModel:
@@ -30,9 +35,15 @@ def get_workspace_model() -> _WorkspaceModel:
 
 def get_workspace(request: HttpRequest) -> _Workspace:
     """Return the workspace model instance associated with the given request."""
-    raise NotImplementedError
+    Workspace = get_workspace_model()  # noqa: N806
+    workspace_id = Workspace._meta.pk.to_python(request.session[SESSION_KEY])  # noqa: SLF001
+    # TODO(@hartungstenio): Get default workspace and save
+    return get_object_or_404(Workspace, pk=workspace_id)
 
 
 async def aget_workspace(request: HttpRequest) -> _Workspace:
     """Async version of :func:`get_workspace`."""
-    raise NotImplementedError
+    Workspace = get_workspace_model()  # noqa: N806
+    workspace_id = Workspace._meta.pk.to_python(await request.session.aget(SESSION_KEY))  # noqa: SLF001
+    # TODO(@hartungstenio): Get default workspace and save
+    return await aget_object_or_404(Workspace, pk=workspace_id)
