@@ -29,6 +29,7 @@ classifiers = [
 dependencies = [
   "django",
   "django-stubs-ext",
+  "typing-extensions; python_version<'3.13'",
 ]
 dynamic = ["version"]
 
@@ -97,7 +98,7 @@ cov = [
 ]
 
 [tool.hatch.envs.hatch-test]
-extra-dependencies = ["pytest-django"]
+extra-dependencies = ["pytest-asyncio", "pytest-django"]
 
 [tool.hatch.envs.hatch-test.overrides]
 matrix.django.dependencies = [
