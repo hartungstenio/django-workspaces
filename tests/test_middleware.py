@@ -1,6 +1,6 @@
 """Tests for workspace_middleware."""
 
-import inspect
+from collections.abc import Awaitable, Callable
 from unittest import mock
 
 import pytest
@@ -11,11 +11,12 @@ from django.http import HttpRequest, HttpResponse
 from django.http.response import HttpResponseBase
 from django.test.client import RequestFactory
 
-from django_workspaces.middleware import _AsyncGetResponseCallable, _GetResponseCallable, workspace_middleware
+from django_workspaces._compat import iscoroutinefunction
+from django_workspaces.middleware import workspace_middleware
 
 
 @pytest.fixture
-def get_response() -> _GetResponseCallable:
+def get_response() -> Callable[[HttpRequest], HttpResponseBase]:
     """Return a dummy sync get_response function."""
 
     def middleware(request: HttpRequest, /) -> HttpResponse:
@@ -25,7 +26,7 @@ def get_response() -> _GetResponseCallable:
 
 
 @pytest.fixture
-def get_response_async() -> _AsyncGetResponseCallable:
+def get_response_async() -> Callable[[HttpRequest], Awaitable[HttpResponseBase]]:
     """Return a dummy async get_response function."""
 
     async def middleware(request: HttpRequest, /) -> HttpResponse:
@@ -34,10 +35,14 @@ def get_response_async() -> _AsyncGetResponseCallable:
     return middleware
 
 
-def test_sync_middleware_chain(get_response: _GetResponseCallable, rf: RequestFactory, admin_user: User) -> None:
+def test_sync_middleware_chain(
+    get_response: Callable[[HttpRequest], HttpResponseBase],
+    rf: RequestFactory,
+    admin_user: User,
+) -> None:
     """Test the sync middleware."""
-    middleware: _GetResponseCallable = workspace_middleware(get_response)
-    assert inspect.iscoroutinefunction(middleware) is False, "Expected a sync middleware. Got an async one"
+    middleware = workspace_middleware(get_response)
+    assert iscoroutinefunction(middleware) is False, "Expected a sync middleware. Got an async one"
 
     request = rf.get("/")
     with pytest.raises(ImproperlyConfigured):
@@ -53,7 +58,7 @@ def test_sync_middleware_chain(get_response: _GetResponseCallable, rf: RequestFa
         mock.patch("django_workspaces.middleware.get_workspace", return_value=expected_sync) as mock_get_workspace,
         mock.patch("django_workspaces.middleware.aget_workspace", return_value=expected_async) as mock_aget_workspace,
     ):
-        got: HttpResponseBase = middleware(request)  # type: ignore[arg-type]
+        got: HttpResponseBase = middleware(request)  # type: ignore[arg-type, assignment]
 
     assert isinstance(got, HttpResponseBase), f"Expected a response, got {type(got)}"
 
@@ -72,13 +77,13 @@ def test_sync_middleware_chain(get_response: _GetResponseCallable, rf: RequestFa
 
 @pytest.mark.asyncio
 async def test_async_middleware_chain(
-    get_response_async: _AsyncGetResponseCallable,
+    get_response_async: Callable[[HttpRequest], Awaitable[HttpResponseBase]],
     rf: RequestFactory,
     admin_user: User,
 ) -> None:
     """Test the async middleware."""
-    middleware: _AsyncGetResponseCallable = workspace_middleware(get_response_async)
-    assert inspect.iscoroutinefunction(middleware), "Expected an async middleware. Got a sync one"
+    middleware = workspace_middleware(get_response_async)
+    assert iscoroutinefunction(middleware), "Expected an async middleware. Got a sync one"
 
     request = rf.get("/")
     with pytest.raises(ImproperlyConfigured):
@@ -89,6 +94,7 @@ async def test_async_middleware_chain(
     async def aget_user() -> User:
         return admin_user
 
+    request.user = admin_user
     request.auser = aget_user
     expected_sync = mock.Mock()
     expected_async = mock.Mock()
