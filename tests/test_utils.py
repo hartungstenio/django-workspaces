@@ -88,7 +88,6 @@ def test_get_workspace_requests_signal(settings: SettingsWrapper, rf: RequestFac
             signal=workspace_requested,
             sender=Workspace,
             user=user,
-            request=request,
         )
     finally:
         workspace_requested.disconnect(mock_signal)
@@ -193,7 +192,6 @@ def test_aget_workspace_requests_signal(
             signal=workspace_requested,
             sender=Workspace,
             user=user,
-            request=request,
         )
     finally:
         workspace_requested.disconnect(mock_signal)
