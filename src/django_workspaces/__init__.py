@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, cast
 import django_stubs_ext
 from django.apps import apps as django_apps
 from django.conf import settings
+from django.contrib.sessions.backends.base import SessionBase
 from django.http import Http404, HttpRequest
 from django.shortcuts import aget_object_or_404, get_object_or_404
 
@@ -40,15 +41,13 @@ def get_workspace_model() -> _WorkspaceModel:
     return django_apps.get_model(workspace_model_name, require_ready=False)
 
 
-def get_workspace(request: HttpRequest) -> _Workspace:
-    """Return the workspace model instance associated with the given request."""
+def resolve_workspace(user: "AbstractUser | AnonymousUser", session: SessionBase) -> _Workspace:
     Workspace: _WorkspaceModel = get_workspace_model()  # noqa: N806
-    user: AbstractUser | AnonymousUser = request.user
 
     try:
-        workspace_id = Workspace._meta.pk.to_python(request.session[SESSION_KEY])  # noqa: SLF001
+        workspace_id = Workspace._meta.pk.to_python(session[SESSION_KEY])  # noqa: SLF001
     except KeyError as exc:
-        responses = workspace_requested.send(Workspace, user=user, request=request)
+        responses = workspace_requested.send(Workspace, user=user)
         if not responses:
             msg = "Could not find a workspace"
             raise Http404(msg) from exc
@@ -60,14 +59,12 @@ def get_workspace(request: HttpRequest) -> _Workspace:
     return workspace
 
 
-async def aget_workspace(request: HttpRequest) -> _Workspace:
-    """Async version of :func:`get_workspace`."""
+async def aresolve_workspace(user: "AbstractUser | AnonymousUser", session: SessionBase) -> _Workspace:
     Workspace: _WorkspaceModel = get_workspace_model()  # noqa: N806
-    user: AbstractUser | AnonymousUser = await request.auser()
 
-    session_workspace = await request.session.aget(SESSION_KEY)
+    session_workspace = await session.aget(SESSION_KEY)
     if session_workspace is None:
-        responses = await workspace_requested.asend(Workspace, user=user, request=request)
+        responses = await workspace_requested.asend(Workspace, user=user)
         if not responses:
             msg = "Could not find a workspace"
             raise Http404(msg)
@@ -78,3 +75,14 @@ async def aget_workspace(request: HttpRequest) -> _Workspace:
         workspace = await aget_object_or_404(Workspace, pk=workspace_id)
 
     return workspace
+
+
+def get_workspace(request: HttpRequest) -> _Workspace:
+    """Return the workspace model instance associated with the given request."""
+    return resolve_workspace(request.user, request.session)
+
+
+async def aget_workspace(request: HttpRequest) -> _Workspace:
+    """Async version of :func:`get_workspace`."""
+    user: AbstractUser | AnonymousUser = await request.auser()
+    return await aresolve_workspace(user, request.session)
