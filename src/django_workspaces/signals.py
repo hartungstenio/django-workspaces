@@ -15,3 +15,27 @@ Args:
 Returns:
     A workspace instance if could find a default workspace. None otherwise.
 """
+
+workspace_entered = Signal()
+"""Dispatched when a user enters a workspace.
+
+Args:
+    sender: The current workspace model.
+    user: The user entering the workspace.
+    workspace: The workspace being entered.
+
+Returns:
+    Nothing.
+"""
+
+workspace_exited = Signal()
+"""Dispatched when a user leaves a workspace.
+
+Args:
+    sender: The current workspace model.
+    user: The user entering the workspace.
+    workspace: The workspace being entered.
+
+Returns:
+    Nothing.
+"""
