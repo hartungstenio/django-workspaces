@@ -4,7 +4,8 @@
 active workspace. Anything can be added to a workspace.
 """
 
-from typing import TYPE_CHECKING, Any, cast
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, cast, overload
 
 import django_stubs_ext
 from django.apps import apps as django_apps
@@ -12,8 +13,9 @@ from django.conf import settings
 from django.contrib.sessions.backends.base import SessionBase
 from django.http import Http404, HttpRequest
 from django.shortcuts import aget_object_or_404, get_object_or_404
+from django.utils.translation import gettext as _
 
-from .signals import workspace_requested
+from .signals import workspace_entered, workspace_exited, workspace_requested
 from .types import _Workspace, _WorkspaceModel
 
 if TYPE_CHECKING:
@@ -22,13 +24,42 @@ if TYPE_CHECKING:
 django_stubs_ext.monkeypatch()
 
 __all__ = [
+    "aenter_workspace",
     "aget_workspace",
+    "aget_workspace",
+    "aleave_workspace",
+    "aresolve_workspace",
+    "aswitch_workspace",
+    "enter_workspace",
+    "get_workspace",
     "get_workspace",
     "get_workspace_model",
+    "leave_workspace",
+    "resolve_workspace",
+    "switch_workspace",
+    "workspace_entered",
+    "workspace_exited",
     "workspace_requested",
 ]
 
 SESSION_KEY = "_workspace_id"
+
+
+def _resolve_user_session(
+    obj: "AbstractUser | AnonymousUser | Mapping[str, Any] | HttpRequest",
+    session: SessionBase | None = None,
+) -> tuple["AbstractUser | AnonymousUser", SessionBase]:
+    if isinstance(obj, HttpRequest):
+        return obj.user, obj.session
+
+    if isinstance(obj, Mapping):
+        return obj["user"], obj["session"]
+
+    if not session:
+        msg = _("You must pass both a user and a session.")
+        raise ValueError(msg)
+
+    return cast("AbstractUser | AnonymousUser", obj), session
 
 
 def get_workspace_model() -> _WorkspaceModel:
@@ -42,10 +73,20 @@ def get_workspace_model() -> _WorkspaceModel:
 
 
 def resolve_workspace(user: "AbstractUser | AnonymousUser", session: SessionBase) -> _Workspace:
+    """Resolve the current workspace for the given user.
+
+    Args:
+        user: the user in need of a workspace.
+        session: the current session.
+    Returns:
+        The current workspace for the given user.
+    Raises:
+        :exc:`Http404` then no workspace can be found.
+    """
     Workspace: _WorkspaceModel = get_workspace_model()  # noqa: N806
 
     try:
-        workspace_id = Workspace._meta.pk.to_python(session[SESSION_KEY])  # noqa: SLF001
+        workspace_id = Workspace._meta.pk.to_python(session[SESSION_KEY])
     except KeyError as exc:
         responses = workspace_requested.send(Workspace, user=user)
         if not responses:
@@ -53,6 +94,7 @@ def resolve_workspace(user: "AbstractUser | AnonymousUser", session: SessionBase
             raise Http404(msg) from exc
 
         _, workspace = cast("tuple[Any, _Workspace]", responses[0])
+        enter_workspace(user, workspace, session)
     else:
         workspace = get_object_or_404(Workspace, pk=workspace_id)
 
@@ -60,6 +102,18 @@ def resolve_workspace(user: "AbstractUser | AnonymousUser", session: SessionBase
 
 
 async def aresolve_workspace(user: "AbstractUser | AnonymousUser", session: SessionBase) -> _Workspace:
+    """Resolve the current workspace for the given user.
+
+    Async version of :func:`resolve_workspace`.
+
+    Args:
+        user: the user in need of a workspace.
+        session: the current session.
+    Returns:
+        The current workspace for the given user.
+    Raises:
+        :exc:`Http404` then no workspace can be found.
+    """
     Workspace: _WorkspaceModel = get_workspace_model()  # noqa: N806
 
     session_workspace = await session.aget(SESSION_KEY)
@@ -70,8 +124,9 @@ async def aresolve_workspace(user: "AbstractUser | AnonymousUser", session: Sess
             raise Http404(msg)
 
         _, workspace = cast("tuple[Any, _Workspace]", responses[0])
+        await aenter_workspace(user, workspace, session)
     else:
-        workspace_id = Workspace._meta.pk.to_python(session_workspace)  # noqa: SLF001
+        workspace_id = Workspace._meta.pk.to_python(session_workspace)
         workspace = await aget_object_or_404(Workspace, pk=workspace_id)
 
     return workspace
@@ -86,3 +141,318 @@ async def aget_workspace(request: HttpRequest) -> _Workspace:
     """Async version of :func:`get_workspace`."""
     user: AbstractUser | AnonymousUser = await request.auser()
     return await aresolve_workspace(user, request.session)
+
+
+@overload
+def enter_workspace(request: HttpRequest, /, workspace: _Workspace) -> None:
+    """Change the current workspace for the user of the given request.
+
+    Args:
+        request: the authenticated request.
+        workspace: the workspace being entered.
+    """
+
+
+@overload
+def enter_workspace(scope: Mapping[str, Any], /, workspace: _Workspace) -> None:
+    """Change the current workspace for the user of the given ASGI scope.
+
+    Args:
+        scope: the authenticated ASGI scope. Should have both user and session keys.
+        workspace: the workspace being entered.
+    """
+
+
+@overload
+def enter_workspace(user: "AbstractUser | AnonymousUser", /, workspace: _Workspace, session: SessionBase) -> None:
+    """Change the current workspace for the given user.
+
+    Args:
+        user: the user entering the workspace.
+        workspace: the workspace being entered.
+        session: the current session.
+    """
+
+
+def enter_workspace(
+    obj: "AbstractUser | AnonymousUser | Mapping[str, Any] | HttpRequest",
+    workspace: _Workspace,
+    session: SessionBase | None = None,
+) -> None:
+    """Change the current workspace for the given user.
+
+    Args:
+        user: the user entering the workspace.
+        workspace: the workspace being entered.
+        session: the current session.
+    """
+    user, session = _resolve_user_session(obj, session)
+    session[SESSION_KEY] = workspace._meta.pk.value_to_string(workspace)
+    workspace_entered.send(workspace.__class__, user=user, workspace=workspace)
+
+
+@overload
+async def aenter_workspace(request: HttpRequest, /, workspace: _Workspace) -> None:
+    """Change the current workspace for the user of the given request.
+
+    Async version of :func:`enter_workspace`.
+
+    Args:
+        request: the authenticated request.
+        workspace: the workspace being entered.
+    """
+
+
+@overload
+async def aenter_workspace(scope: Mapping[str, Any], /, workspace: _Workspace) -> None:
+    """Change the current workspace for the user of the given ASGI scope.
+
+    Async version of :func:`enter_workspace`.
+
+    Args:
+        scope: the authenticated ASGI scope. Should have both user and session keys.
+        workspace: the workspace being entered.
+    """
+
+
+@overload
+async def aenter_workspace(
+    user: "AbstractUser | AnonymousUser",
+    /,
+    workspace: _Workspace,
+    session: SessionBase,
+) -> None:
+    """Change the current workspace for the given user.
+
+    Async version of :func:`enter_workspace`.
+
+    Args:
+        user: the user entering the workspace.
+        workspace: the workspace being entered.
+        session: the current session.
+    """
+
+
+async def aenter_workspace(
+    obj: "AbstractUser | AnonymousUser | Mapping[str, Any] | HttpRequest",
+    workspace: _Workspace,
+    session: SessionBase | None = None,
+) -> None:
+    """Change the current workspace for the given user.
+
+    Async version of :func:`enter_workspace`.
+
+    Args:
+        user: the user entering the workspace.
+        workspace: the workspace being entered.
+        session: the current session.
+    """
+    user, session = _resolve_user_session(obj, session)
+    await session.aset(SESSION_KEY, workspace._meta.pk.value_to_string(workspace))
+    await workspace_entered.asend(workspace.__class__, user=user, workspace=workspace)
+
+
+@overload
+def leave_workspace(request: HttpRequest, /) -> None:
+    """Make the user of the given request leave its current workspace.
+
+    Args:
+        request: the authenticated request.
+    """
+
+
+@overload
+def leave_workspace(scope: Mapping[str, Any], /) -> None:
+    """Make the user of the given ASGI scope leave its current workspace.
+
+    Args:
+        scope: the authenticated ASGI scope. Should have both user and session keys.
+    """
+
+
+@overload
+def leave_workspace(user: "AbstractUser | AnonymousUser", /, session: SessionBase) -> None:
+    """Make the user leave its current workspace.
+
+    Args:
+        user: the user leaving the workspace.
+        session: the current session.
+    """
+
+
+def leave_workspace(
+    obj: "AbstractUser | AnonymousUser | Mapping[str, Any] | HttpRequest",
+    session: SessionBase | None = None,
+) -> None:
+    """Make the user leave its current workspace.
+
+    Args:
+        user: the user leaving the workspace.
+        session: the current session.
+    """
+    user, session = _resolve_user_session(obj, session)
+    if SESSION_KEY in session:
+        workspace = resolve_workspace(user, session)
+        del session[SESSION_KEY]
+        workspace_exited.send(workspace.__class__, user=user, workspace=workspace)
+
+
+@overload
+async def aleave_workspace(request: HttpRequest, /) -> None:
+    """Make the user of the given request leave its current workspace.
+
+    Async version of :func:`leave_workspace`.
+
+    Args:
+        request: the authenticated request.
+    """
+
+
+@overload
+async def aleave_workspace(scope: Mapping[str, Any], /) -> None:
+    """Make the user of the given ASGI scope leave its current workspace.
+
+    Async version of :func:`leave_workspace`.
+
+    Args:
+        scope: the authenticated ASGI scope. Should have both user and session keys.
+    """
+
+
+@overload
+async def aleave_workspace(user: "AbstractUser | AnonymousUser", /, session: SessionBase) -> None:
+    """Make the user leave its current workspace.
+
+    Async version of :func:`leave_workspace`.
+
+    Args:
+        user: the user leaving the workspace.
+        session: the current session.
+    """
+
+
+async def aleave_workspace(
+    obj: "AbstractUser | AnonymousUser | Mapping[str, Any] | HttpRequest",
+    session: SessionBase | None = None,
+) -> None:
+    """Make the user leave its current workspace.
+
+    Async version of :func:`leave_workspace`.
+
+    Args:
+        user: the user leaving the workspace.
+        session: the current session.
+    """
+    user, session = _resolve_user_session(obj, session)
+    if await session.ahas_key(SESSION_KEY):
+        workspace = await aresolve_workspace(user, session)
+        await session.apop(SESSION_KEY)
+        await workspace_exited.asend(workspace.__class__, user=user, workspace=workspace)
+
+
+@overload
+def switch_workspace(request: HttpRequest, /, workspace: _Workspace) -> None:
+    """Switch the workspace for the user of the given request.
+
+    Args:
+        request: the authenticated request.
+        workspace: the workspace being entered.
+    """
+
+
+@overload
+def switch_workspace(scope: Mapping[str, Any], /, workspace: _Workspace) -> None:
+    """Switch the workspace for the user of the given ASGI scope.
+
+    Args:
+        scope: the authenticated ASGI scope. Should have both user and session keys.
+        workspace: the workspace being entered.
+    """
+
+
+@overload
+def switch_workspace(user: "AbstractUser | AnonymousUser", /, workspace: _Workspace, session: SessionBase) -> None:
+    """Switch the current user workspace.
+
+    Args:
+        user: the user entering the workspace.
+        workspace: the workspace being entered.
+        session: the current session.
+    """
+
+
+def switch_workspace(
+    obj: "AbstractUser | AnonymousUser | Mapping[str, Any] | HttpRequest",
+    workspace: _Workspace,
+    session: SessionBase | None = None,
+) -> None:
+    """Switch the current user workspace.
+
+    This is a shortcut to calling :func:`leave_workspace` and :func:`enter_workspace`
+
+    Args:
+        user: the user entering the workspace.
+        workspace: the workspace being entered.
+        session: the current session.
+    """
+    leave_workspace(obj, session)  # type: ignore[arg-type]
+    enter_workspace(obj, workspace, session)  # type: ignore[arg-type]
+
+
+@overload
+async def aswitch_workspace(request: HttpRequest, /, workspace: _Workspace) -> None:
+    """Switch the workspace for the user of the given request.
+
+    Async version of :func:`switch_workspace`.
+
+    Args:
+        request: the authenticated request.
+        workspace: the workspace being entered.
+    """
+
+
+@overload
+async def aswitch_workspace(scope: Mapping[str, Any], /, workspace: _Workspace) -> None:
+    """Switch the workspace for the user of the given ASGI scope.
+
+    Async version of :func:`switch_workspace`.
+
+    Args:
+        scope: the authenticated ASGI scope. Should have both user and session keys.
+        workspace: the workspace being entered.
+    """
+
+
+@overload
+async def aswitch_workspace(
+    user: "AbstractUser | AnonymousUser", /, workspace: _Workspace, session: SessionBase
+) -> None:
+    """Switch the current user workspace.
+
+    Async version of :func:`switch_workspace`.
+
+    Args:
+        user: the user entering the workspace.
+        workspace: the workspace being entered.
+        session: the current session.
+    """
+
+
+async def aswitch_workspace(
+    obj: "AbstractUser | AnonymousUser | Mapping[str, Any] | HttpRequest",
+    workspace: _Workspace,
+    session: SessionBase | None = None,
+) -> None:
+    """Switch the current user workspace.
+
+    Async version of :func:`switch_workspace`.
+
+    This is a shortcut to calling :func:`aleave_workspace` and :func:`aenter_workspace`
+
+    Args:
+        user: the user entering the workspace.
+        workspace: the workspace being entered.
+        session: the current session.
+    """
+    await aleave_workspace(obj, session)  # type: ignore[arg-type]
+    await aenter_workspace(obj, workspace, session)  # type: ignore[arg-type]
