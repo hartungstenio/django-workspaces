@@ -134,11 +134,21 @@ async def aresolve_workspace(user: "AbstractUser | AnonymousUser", session: Sess
 
 def get_workspace(request: HttpRequest) -> _Workspace:
     """Return the workspace model instance associated with the given request."""
+    if (workspace_header := getattr(settings, "WORKSPACE_ID_HEADER", None)) and (
+        workspace_id := request.headers.get(workspace_header, None)
+    ):
+        return get_object_or_404(get_workspace_model(), pk=workspace_id)
+
     return resolve_workspace(request.user, request.session)
 
 
 async def aget_workspace(request: HttpRequest) -> _Workspace:
     """Async version of :func:`get_workspace`."""
+    if (workspace_header := getattr(settings, "WORKSPACE_ID_HEADER", None)) and (
+        workspace_id := request.headers.get(workspace_header, None)
+    ):
+        return await aget_object_or_404(get_workspace_model(), pk=workspace_id)
+
     user: AbstractUser | AnonymousUser = await request.auser()
     return await aresolve_workspace(user, request.session)
 
