@@ -137,6 +137,30 @@ def test_get_workspace_requests_signal_none(settings: SettingsWrapper, rf: Reque
         get_workspace(request)
 
 
+def test_get_workspace_with_header(settings: SettingsWrapper, rf: RequestFactory) -> None:
+    """Test if :func:`get_workspace` returns the workspace identified by the request header."""
+    del settings.WORKSPACE_MODEL
+    settings.WORKSPACE_ID_HEADER = "x-workspace-id"
+
+    expected: Workspace = Workspace.objects.create(name="test workspace")
+    request = rf.get("/", headers={"x-workspace-id": str(expected.pk)})
+
+    got = get_workspace(request)
+
+    assert got == expected
+
+
+def test_get_workspace_with_header_non_existing(settings: SettingsWrapper, rf: RequestFactory) -> None:
+    """Test if :func:`get_workspace` raises exception when the workspace from the header does not exist."""
+    del settings.WORKSPACE_MODEL
+    settings.WORKSPACE_ID_HEADER = "x-workspace-id"
+
+    request = rf.get("/", headers={"x-workspace-id": "0"})
+
+    with pytest.raises(Http404):
+        get_workspace(request)
+
+
 def test_aget_workspace_with_session(
     settings: SettingsWrapper, async_rf: AsyncRequestFactory, async_client: AsyncClient
 ) -> None:
@@ -250,6 +274,30 @@ def test_aget_workspace_requests_signal_none(
 
     request.auser = auser
     request.session = async_client.session
+
+    with pytest.raises(Http404):
+        async_to_sync(aget_workspace)(request)
+
+
+def test_aget_workspace_with_header(settings: SettingsWrapper, async_rf: AsyncRequestFactory) -> None:
+    """Test if :func:`aget_workspace` returns the workspace identified by the request header."""
+    del settings.WORKSPACE_MODEL
+    settings.WORKSPACE_ID_HEADER = "x-workspace-id"
+
+    expected: Workspace = Workspace.objects.create(name="test workspace")
+    request = async_rf.get("/", headers={"x-workspace-id": str(expected.pk)})
+
+    got = async_to_sync(aget_workspace)(request)
+
+    assert got == expected
+
+
+def test_aget_workspace_with_header_non_existing(settings: SettingsWrapper, async_rf: AsyncRequestFactory) -> None:
+    """Test if :func:`aget_workspace` raises exception when the workspace from the header does not exist."""
+    del settings.WORKSPACE_MODEL
+    settings.WORKSPACE_ID_HEADER = "x-workspace-id"
+
+    request = async_rf.get("/", headers={"x-workspace-id": "0"})
 
     with pytest.raises(Http404):
         async_to_sync(aget_workspace)(request)
