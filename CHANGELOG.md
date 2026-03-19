@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-03-19
+
+### Added
+
+- Support for Python 3.14
+- Support for Django 6.0
+
 ## [0.2.0] - 2026-03-19
 
 ### Added
@@ -31,7 +38,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workspace middleware for Django WSGI/ASGI applications
 - `get_workspace` helper to retrieve the active workspace from a request
 
-[Unreleased]: https://github.com/hartungstenio/django-workspaces/compare/0.2.0...HEAD
+[Unreleased]: https://github.com/hartungstenio/django-workspaces/compare/0.2.1...HEAD
+[0.2.1]: https://github.com/hartungstenio/django-workspaces/compare/0.2.0...0.2.1
 [0.2.0]: https://github.com/hartungstenio/django-workspaces/compare/0.1.0...0.2.0
 [0.1.0]: https://github.com/hartungstenio/django-workspaces/compare/0.0.1a1...0.1.0
 [0.0.1a1]: https://github.com/hartungstenio/django-workspaces/releases/tag/0.0.1a1
