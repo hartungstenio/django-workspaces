@@ -6,6 +6,7 @@ import pytest
 from asgiref.sync import async_to_sync
 from django.apps import apps
 from django.contrib.auth.models import User
+from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.test.client import AsyncClient, AsyncRequestFactory, Client, RequestFactory
 from pytest_django.fixtures import SettingsWrapper
@@ -366,6 +367,61 @@ def test_enter_workspace_scope(settings: SettingsWrapper, client: Client) -> Non
     assert session[SESSION_KEY] == str(workspace.pk)
 
 
+def test_enter_workspace_permission_denied(settings: SettingsWrapper, client: Client) -> None:
+    """Test if :func:`enter_workspace` raises PermissionDenied when permission validation is enabled."""
+    del settings.WORKSPACE_MODEL
+    settings.WORKSPACE_CHECK_OBJECT_PERMISSIONS = True
+
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    workspace: Workspace = Workspace.objects.create(name="test workspace")
+    session = client.session
+
+    with (
+        mock.patch.object(user, "has_perm", return_value=False) as mock_has_perm,
+        pytest.raises(PermissionDenied),
+    ):
+        enter_workspace(user, workspace, session)
+
+    mock_has_perm.assert_called_once_with("django_workspaces.view_workspace", workspace)
+
+
+def test_enter_workspace_request_permission_denied(
+    settings: SettingsWrapper, rf: RequestFactory, client: Client
+) -> None:
+    """Test if :func:`enter_workspace` raises PermissionDenied when called with a request."""
+    del settings.WORKSPACE_MODEL
+    settings.WORKSPACE_CHECK_OBJECT_PERMISSIONS = True
+
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    request = rf.get("/")
+    request.user = user
+    request.session = client.session
+    workspace: Workspace = Workspace.objects.create(name="test workspace")
+
+    with (
+        mock.patch.object(user, "has_perm", return_value=False),
+        pytest.raises(PermissionDenied),
+    ):
+        enter_workspace(request, workspace)
+
+
+def test_enter_workspace_scope_permission_denied(settings: SettingsWrapper, client: Client) -> None:
+    """Test if :func:`enter_workspace` raises PermissionDenied when called with a scope."""
+    del settings.WORKSPACE_MODEL
+    settings.WORKSPACE_CHECK_OBJECT_PERMISSIONS = True
+
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    session = client.session
+    scope = {"user": user, "session": session}
+    workspace: Workspace = Workspace.objects.create(name="test workspace")
+
+    with (
+        mock.patch.object(user, "has_perm", return_value=False),
+        pytest.raises(PermissionDenied),
+    ):
+        enter_workspace(scope, workspace)
+
+
 def test_aenter_workspace(settings: SettingsWrapper, async_client: AsyncClient) -> None:
     """Test if :func:`aenter_workspace` changes the workspace and dispatch signals."""
     del settings.WORKSPACE_MODEL
@@ -429,6 +485,61 @@ def test_aenter_workspace_scope(settings: SettingsWrapper, async_client: AsyncCl
 
     mock_signal.assert_awaited_once_with(signal=workspace_entered, sender=Workspace, user=user, workspace=workspace)
     assert session[SESSION_KEY] == str(workspace.pk)
+
+
+def test_aenter_workspace_permission_denied(settings: SettingsWrapper, async_client: AsyncClient) -> None:
+    """Test if :func:`aenter_workspace` raises PermissionDenied when permission validation is enabled."""
+    del settings.WORKSPACE_MODEL
+    settings.WORKSPACE_CHECK_OBJECT_PERMISSIONS = True
+
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    workspace: Workspace = Workspace.objects.create(name="test workspace")
+    session = async_client.session
+
+    with (
+        mock.patch.object(user, "ahas_perm", new=mock.AsyncMock(return_value=False)) as mock_ahas_perm,
+        pytest.raises(PermissionDenied),
+    ):
+        async_to_sync(aenter_workspace)(user, workspace, session)  # type: ignore[call-arg, arg-type]
+
+    mock_ahas_perm.assert_awaited_once_with("django_workspaces.view_workspace", workspace)
+
+
+def test_aenter_workspace_request_permission_denied(
+    settings: SettingsWrapper, async_rf: AsyncRequestFactory, async_client: AsyncClient
+) -> None:
+    """Test if :func:`aenter_workspace` raises PermissionDenied when called with a request."""
+    del settings.WORKSPACE_MODEL
+    settings.WORKSPACE_CHECK_OBJECT_PERMISSIONS = True
+
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    request = async_rf.get("/")
+    request.user = user
+    request.session = async_client.session
+    workspace: Workspace = Workspace.objects.create(name="test workspace")
+
+    with (
+        mock.patch.object(user, "ahas_perm", new=mock.AsyncMock(return_value=False)),
+        pytest.raises(PermissionDenied),
+    ):
+        async_to_sync(aenter_workspace)(request, workspace)
+
+
+def test_aenter_workspace_scope_permission_denied(settings: SettingsWrapper, async_client: AsyncClient) -> None:
+    """Test if :func:`aenter_workspace` raises PermissionDenied when called with a scope."""
+    del settings.WORKSPACE_MODEL
+    settings.WORKSPACE_CHECK_OBJECT_PERMISSIONS = True
+
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    session = async_client.session
+    scope = {"user": user, "session": session}
+    workspace: Workspace = Workspace.objects.create(name="test workspace")
+
+    with (
+        mock.patch.object(user, "ahas_perm", new=mock.AsyncMock(return_value=False)),
+        pytest.raises(PermissionDenied),
+    ):
+        async_to_sync(aenter_workspace)(scope, workspace)  # type: ignore[arg-type]
 
 
 def test_leave_workspace(settings: SettingsWrapper, client: Client) -> None:

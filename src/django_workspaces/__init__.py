@@ -11,6 +11,7 @@ import django_stubs_ext
 from django.apps import apps as django_apps
 from django.conf import settings
 from django.contrib.sessions.backends.base import SessionBase
+from django.core.exceptions import PermissionDenied
 from django.http import Http404, HttpRequest
 from django.shortcuts import aget_object_or_404, get_object_or_404
 from django.utils.translation import gettext as _
@@ -62,6 +63,21 @@ def _resolve_user_session(
     return cast("AbstractUser | AnonymousUser", obj), session
 
 
+def _check_object_permission(user: "AbstractUser | AnonymousUser", workspace: _Workspace) -> None:
+    if getattr(settings, "WORKSPACE_CHECK_OBJECT_PERMISSIONS", False):
+        view_perm = f"{workspace._meta.app_label}.view_{workspace._meta.model_name}"
+        if not user.has_perm(view_perm, workspace):
+            raise PermissionDenied
+
+
+async def _acheck_object_permission(user: "AbstractUser | AnonymousUser", workspace: _Workspace) -> None:
+    if getattr(settings, "WORKSPACE_CHECK_OBJECT_PERMISSIONS", False):
+        view_perm = f"{workspace._meta.app_label}.view_{workspace._meta.model_name}"
+        has_perm = await user.ahas_perm(view_perm, workspace)
+        if not has_perm:
+            raise PermissionDenied
+
+
 def get_workspace_model() -> _WorkspaceModel:
     """Return the workspace model that is active for this project.
 
@@ -81,7 +97,10 @@ def resolve_workspace(user: "AbstractUser | AnonymousUser", session: SessionBase
     Returns:
         The current workspace for the given user.
     Raises:
-        :exc:`Http404` then no workspace can be found.
+        :exc:`Http404`: if no workspace can be found.
+        :exc:`django.core.exceptions.PermissionDenied`: if permission validation is enabled
+            and the user does not have view permission on the workspace resolved from the
+            ``workspace_requested`` signal.
     """
     Workspace: _WorkspaceModel = get_workspace_model()  # noqa: N806
 
@@ -112,7 +131,10 @@ async def aresolve_workspace(user: "AbstractUser | AnonymousUser", session: Sess
     Returns:
         The current workspace for the given user.
     Raises:
-        :exc:`Http404` then no workspace can be found.
+        :exc:`Http404`: if no workspace can be found.
+        :exc:`django.core.exceptions.PermissionDenied`: if permission validation is enabled
+            and the user does not have view permission on the workspace resolved from the
+            ``workspace_requested`` signal.
     """
     Workspace: _WorkspaceModel = get_workspace_model()  # noqa: N806
 
@@ -133,7 +155,13 @@ async def aresolve_workspace(user: "AbstractUser | AnonymousUser", session: Sess
 
 
 def get_workspace(request: HttpRequest) -> _Workspace:
-    """Return the workspace model instance associated with the given request."""
+    """Return the workspace model instance associated with the given request.
+
+    Raises:
+        :exc:`Http404`: if no workspace can be found.
+        :exc:`django.core.exceptions.PermissionDenied`: if permission validation is enabled
+            and the user does not have view permission on the workspace.
+    """
     if (workspace_header := getattr(settings, "WORKSPACE_ID_HEADER", None)) and (
         workspace_id := request.headers.get(workspace_header, None)
     ):
@@ -143,7 +171,13 @@ def get_workspace(request: HttpRequest) -> _Workspace:
 
 
 async def aget_workspace(request: HttpRequest) -> _Workspace:
-    """Async version of :func:`get_workspace`."""
+    """Async version of :func:`get_workspace`.
+
+    Raises:
+        :exc:`Http404`: if no workspace can be found.
+        :exc:`django.core.exceptions.PermissionDenied`: if permission validation is enabled
+            and the user does not have view permission on the workspace.
+    """
     if (workspace_header := getattr(settings, "WORKSPACE_ID_HEADER", None)) and (
         workspace_id := request.headers.get(workspace_header, None)
     ):
@@ -160,6 +194,9 @@ def enter_workspace(request: HttpRequest, /, workspace: _Workspace) -> None:
     Args:
         request: the authenticated request.
         workspace: the workspace being entered.
+    Raises:
+        :exc:`django.core.exceptions.PermissionDenied`: if permission validation is enabled
+            and the user does not have view permission on the workspace.
     """
 
 
@@ -170,6 +207,9 @@ def enter_workspace(scope: Mapping[str, Any], /, workspace: _Workspace) -> None:
     Args:
         scope: the authenticated ASGI scope. Should have both user and session keys.
         workspace: the workspace being entered.
+    Raises:
+        :exc:`django.core.exceptions.PermissionDenied`: if permission validation is enabled
+            and the user does not have view permission on the workspace.
     """
 
 
@@ -181,6 +221,9 @@ def enter_workspace(user: "AbstractUser | AnonymousUser", /, workspace: _Workspa
         user: the user entering the workspace.
         workspace: the workspace being entered.
         session: the current session.
+    Raises:
+        :exc:`django.core.exceptions.PermissionDenied`: if permission validation is enabled
+            and the user does not have view permission on the workspace.
     """
 
 
@@ -195,8 +238,12 @@ def enter_workspace(
         user: the user entering the workspace.
         workspace: the workspace being entered.
         session: the current session.
+    Raises:
+        :exc:`django.core.exceptions.PermissionDenied`: if permission validation is enabled
+            and the user does not have view permission on the workspace.
     """
     user, session = _resolve_user_session(obj, session)
+    _check_object_permission(user, workspace)
     session[SESSION_KEY] = workspace._meta.pk.value_to_string(workspace)
     workspace_entered.send(workspace.__class__, user=user, workspace=workspace)
 
@@ -210,6 +257,9 @@ async def aenter_workspace(request: HttpRequest, /, workspace: _Workspace) -> No
     Args:
         request: the authenticated request.
         workspace: the workspace being entered.
+    Raises:
+        :exc:`django.core.exceptions.PermissionDenied`: if permission validation is enabled
+            and the user does not have view permission on the workspace.
     """
 
 
@@ -222,6 +272,9 @@ async def aenter_workspace(scope: Mapping[str, Any], /, workspace: _Workspace) -
     Args:
         scope: the authenticated ASGI scope. Should have both user and session keys.
         workspace: the workspace being entered.
+    Raises:
+        :exc:`django.core.exceptions.PermissionDenied`: if permission validation is enabled
+            and the user does not have view permission on the workspace.
     """
 
 
@@ -240,6 +293,9 @@ async def aenter_workspace(
         user: the user entering the workspace.
         workspace: the workspace being entered.
         session: the current session.
+    Raises:
+        :exc:`django.core.exceptions.PermissionDenied`: if permission validation is enabled
+            and the user does not have view permission on the workspace.
     """
 
 
@@ -256,8 +312,12 @@ async def aenter_workspace(
         user: the user entering the workspace.
         workspace: the workspace being entered.
         session: the current session.
+    Raises:
+        :exc:`django.core.exceptions.PermissionDenied`: if permission validation is enabled
+            and the user does not have view permission on the workspace.
     """
     user, session = _resolve_user_session(obj, session)
+    await _acheck_object_permission(user, workspace)
     await session.aset(SESSION_KEY, workspace._meta.pk.value_to_string(workspace))
     await workspace_entered.asend(workspace.__class__, user=user, workspace=workspace)
 
@@ -367,6 +427,9 @@ def switch_workspace(request: HttpRequest, /, workspace: _Workspace) -> None:
     Args:
         request: the authenticated request.
         workspace: the workspace being entered.
+    Raises:
+        :exc:`django.core.exceptions.PermissionDenied`: if permission validation is enabled
+            and the user does not have view permission on the workspace.
     """
 
 
@@ -377,6 +440,9 @@ def switch_workspace(scope: Mapping[str, Any], /, workspace: _Workspace) -> None
     Args:
         scope: the authenticated ASGI scope. Should have both user and session keys.
         workspace: the workspace being entered.
+    Raises:
+        :exc:`django.core.exceptions.PermissionDenied`: if permission validation is enabled
+            and the user does not have view permission on the workspace.
     """
 
 
@@ -388,6 +454,9 @@ def switch_workspace(user: "AbstractUser | AnonymousUser", /, workspace: _Worksp
         user: the user entering the workspace.
         workspace: the workspace being entered.
         session: the current session.
+    Raises:
+        :exc:`django.core.exceptions.PermissionDenied`: if permission validation is enabled
+            and the user does not have view permission on the workspace.
     """
 
 
@@ -404,6 +473,9 @@ def switch_workspace(
         user: the user entering the workspace.
         workspace: the workspace being entered.
         session: the current session.
+    Raises:
+        :exc:`django.core.exceptions.PermissionDenied`: if permission validation is enabled
+            and the user does not have view permission on the workspace.
     """
     leave_workspace(obj, session)  # type: ignore[arg-type]
     enter_workspace(obj, workspace, session)  # type: ignore[arg-type]
@@ -418,6 +490,9 @@ async def aswitch_workspace(request: HttpRequest, /, workspace: _Workspace) -> N
     Args:
         request: the authenticated request.
         workspace: the workspace being entered.
+    Raises:
+        :exc:`django.core.exceptions.PermissionDenied`: if permission validation is enabled
+            and the user does not have view permission on the workspace.
     """
 
 
@@ -430,6 +505,9 @@ async def aswitch_workspace(scope: Mapping[str, Any], /, workspace: _Workspace) 
     Args:
         scope: the authenticated ASGI scope. Should have both user and session keys.
         workspace: the workspace being entered.
+    Raises:
+        :exc:`django.core.exceptions.PermissionDenied`: if permission validation is enabled
+            and the user does not have view permission on the workspace.
     """
 
 
@@ -445,6 +523,9 @@ async def aswitch_workspace(
         user: the user entering the workspace.
         workspace: the workspace being entered.
         session: the current session.
+    Raises:
+        :exc:`django.core.exceptions.PermissionDenied`: if permission validation is enabled
+            and the user does not have view permission on the workspace.
     """
 
 
@@ -463,6 +544,9 @@ async def aswitch_workspace(
         user: the user entering the workspace.
         workspace: the workspace being entered.
         session: the current session.
+    Raises:
+        :exc:`django.core.exceptions.PermissionDenied`: if permission validation is enabled
+            and the user does not have view permission on the workspace.
     """
     await aleave_workspace(obj, session)  # type: ignore[arg-type]
     await aenter_workspace(obj, workspace, session)  # type: ignore[arg-type]
