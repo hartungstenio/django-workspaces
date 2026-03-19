@@ -81,7 +81,7 @@ source = "vcs"
 [tool.hatch.envs.default]
 features   = ["channels"]
 dependencies = [
-  "coverage[toml]>=6.5",
+  "coverage[toml] (>=6.5)",
   "django-stubs",
   "mypy",
   "pytest",
@@ -110,8 +110,8 @@ features   = ["channels"]
 
 [tool.hatch.envs.hatch-test.overrides]
 matrix.django.dependencies = [
-  { value = "django>=5.2,<5.3", if = ["5.2"] },
-  { value = "django>=6.0,<6.1", if = ["6.0"] },
+  { value = "django (~=5.2.0)", if = ["5.2"] },
+  { value = "django (~=6.0.0)", if = ["6.0"] },
 ]
 
 [[tool.hatch.envs.hatch-test.matrix]]
@@ -124,7 +124,7 @@ python = ["3.12", "3.13", "3.14"]
 
 [tool.hatch.envs.hatch-static-analysis]
 config-path = "none"
-dependencies = ["ruff==0.12.0"]
+dependencies = ["ruff (~=0.15.7)"]
 
 [tool.mypy]
 strict = true
