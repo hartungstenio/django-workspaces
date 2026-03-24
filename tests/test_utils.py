@@ -16,11 +16,13 @@ from django_workspaces import (
     aenter_workspace,
     aget_workspace,
     aleave_workspace,
+    aresolve_workspace,
     aswitch_workspace,
     enter_workspace,
     get_workspace,
     get_workspace_model,
     leave_workspace,
+    resolve_workspace,
     switch_workspace,
     workspace_entered,
     workspace_exited,
@@ -50,6 +52,158 @@ def test_get_workspace_model_swapped(settings: SettingsWrapper) -> None:
     assert got is apps.get_model("sites", "Site")
 
 
+def test_resolve_workspace_with_session_non_existing(settings: SettingsWrapper, client: Client) -> None:
+    """Test if :func:`resolve_workspace` raises exception when session workspace does not exist."""
+    del settings.WORKSPACE_MODEL
+
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    client.login(username="testuser", passworkd="testpw")
+    session = client.session
+    session[SESSION_KEY] = "0"
+
+    with pytest.raises(Http404):
+        resolve_workspace(user, session)
+
+
+def test_resolve_workspace_no_signal(settings: SettingsWrapper, client: Client) -> None:
+    """Test if :func:`resolve_workspace` raises exception when there are no signals to respond workspace requests."""
+    del settings.WORKSPACE_MODEL
+
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    client.login(username="testuser", passworkd="testpw")
+    session = client.session
+
+    with pytest.raises(Http404):
+        resolve_workspace(user, session)
+
+
+def test_resolve_workspace_requests_signal(settings: SettingsWrapper, client: Client) -> None:
+    """Test if :func:`resolve_workspace` uses requested workspace when there is no workspace in session."""
+    del settings.WORKSPACE_MODEL
+
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    client.login(username="testuser", passworkd="testpw")
+    expected: Workspace = Workspace.objects.create(name="test workspace")
+    session = client.session
+    mock_signal = mock.Mock(return_value=expected)
+
+    workspace_requested.connect(mock_signal)
+    try:
+        with mock.patch("django_workspaces.enter_workspace") as mock_enter:
+            got = resolve_workspace(user, session)
+
+        assert got == expected
+        mock_enter.assert_called_once_with(user, got, session)
+        mock_signal.assert_called_once_with(
+            signal=workspace_requested,
+            sender=Workspace,
+            user=user,
+        )
+    finally:
+        workspace_requested.disconnect(mock_signal)
+
+
+def test_resolve_workspace_requests_signal_none(settings: SettingsWrapper, client: Client) -> None:
+    """Test if :func:`resolve_workspace` raises exception when signal return None."""
+    del settings.WORKSPACE_MODEL
+
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    client.login(username="testuser", passworkd="testpw")
+    session = client.session
+    mock_signal = mock.Mock(return_value=None)
+
+    workspace_requested.connect(mock_signal)
+    try:
+        with pytest.raises(Http404):
+            resolve_workspace(user, session)
+    finally:
+        workspace_requested.disconnect(mock_signal)
+
+
+def test_aresolve_workspace_with_session(settings: SettingsWrapper, async_client: AsyncClient) -> None:
+    """Test if :func:`aresolve_workspace` gets the session workspace."""
+    del settings.WORKSPACE_MODEL
+
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    async_to_sync(async_client.alogin)(username="testuser", passworkd="testpw")
+    expected: Workspace = Workspace.objects.create(name="test workspace")
+
+    session = async_client.session
+    session[SESSION_KEY] = str(expected.pk)
+
+    got = async_to_sync(aresolve_workspace)(user, session)
+
+    assert got == expected
+
+
+def test_aresolve_workspace_with_session_non_existing(settings: SettingsWrapper, async_client: AsyncClient) -> None:
+    """Test if :func:`aresolve_workspace` raises exception when session workspace does not exist."""
+    del settings.WORKSPACE_MODEL
+
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    async_to_sync(async_client.alogin)(username="testuser", passworkd="testpw")
+    session = async_client.session
+    session[SESSION_KEY] = "0"
+
+    with pytest.raises(Http404):
+        async_to_sync(aresolve_workspace)(user, session)
+
+
+def test_aresolve_workspace_no_signal(settings: SettingsWrapper, async_client: AsyncClient) -> None:
+    """Test if :func:`aresolve_workspace` raises exception when there are no signals to respond workspace requests."""
+    del settings.WORKSPACE_MODEL
+
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    async_to_sync(async_client.alogin)(username="testuser", passworkd="testpw")
+    session = async_client.session
+
+    with pytest.raises(Http404):
+        async_to_sync(aresolve_workspace)(user, session)
+
+
+def test_aresolve_workspace_requests_signal(settings: SettingsWrapper, async_client: AsyncClient) -> None:
+    """Test if :func:`aresolve_workspace` uses requested workspace when there is no workspace in session."""
+    del settings.WORKSPACE_MODEL
+
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    async_to_sync(async_client.alogin)(username="testuser", passworkd="testpw")
+    expected: Workspace = Workspace.objects.create(name="test workspace")
+    session = async_client.session
+    mock_signal = mock.AsyncMock(return_value=expected)
+
+    workspace_requested.connect(mock_signal)
+    try:
+        with mock.patch("django_workspaces.aenter_workspace") as mock_aenter:
+            got = async_to_sync(aresolve_workspace)(user, session)
+
+        assert got == expected
+        mock_aenter.assert_called_once_with(user, got, session)
+        mock_signal.assert_awaited_once_with(
+            signal=workspace_requested,
+            sender=Workspace,
+            user=user,
+        )
+    finally:
+        workspace_requested.disconnect(mock_signal)
+
+
+def test_aresolve_workspace_requests_signal_none(settings: SettingsWrapper, async_client: AsyncClient) -> None:
+    """Test if :func:`aresolve_workspace` raises exception when signal return None."""
+    del settings.WORKSPACE_MODEL
+
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    async_to_sync(async_client.alogin)(username="testuser", passworkd="testpw")
+    session = async_client.session
+    mock_signal = mock.AsyncMock(return_value=None)
+
+    workspace_requested.connect(mock_signal)
+    try:
+        with pytest.raises(Http404):
+            async_to_sync(aresolve_workspace)(user, session)
+    finally:
+        workspace_requested.disconnect(mock_signal)
+
+
 def test_get_workspace_with_session(settings: SettingsWrapper, rf: RequestFactory, client: Client) -> None:
     """Test if :func:`get_workspace` gets the session workspace."""
     del settings.WORKSPACE_MODEL
@@ -62,80 +216,11 @@ def test_get_workspace_with_session(settings: SettingsWrapper, rf: RequestFactor
     request.session = client.session
     request.session[SESSION_KEY] = str(expected.pk)
 
-    got = get_workspace(request)
+    with mock.patch("django_workspaces.resolve_workspace", return_value=expected) as mock_resolve:
+        got = get_workspace(request)
 
     assert got == expected
-
-
-def test_get_workspace_with_session_non_existing(settings: SettingsWrapper, rf: RequestFactory, client: Client) -> None:
-    """Test if :func:`get_workspace` raises exception when session workspace does not exist."""
-    del settings.WORKSPACE_MODEL
-
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
-    client.login(username="testuser", passworkd="testpw")
-    request = rf.get("/")
-    request.user = user
-    request.session = client.session
-    request.session[SESSION_KEY] = "0"
-
-    with pytest.raises(Http404):
-        get_workspace(request)
-
-
-def test_get_workspace_requests_signal(settings: SettingsWrapper, rf: RequestFactory, client: Client) -> None:
-    """Test if :func:`get_workspace` uses requested workspace when there is no workspace in session."""
-    del settings.WORKSPACE_MODEL
-
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
-    client.login(username="testuser", passworkd="testpw")
-    expected: Workspace = Workspace.objects.create(name="test workspace")
-    request = rf.get("/")
-    request.user = user
-    request.session = client.session
-    mock_signal = mock.Mock(return_value=expected)
-
-    workspace_requested.connect(mock_signal)
-    try:
-        with mock.patch("django_workspaces.enter_workspace") as mock_enter:
-            got = get_workspace(request)
-
-        assert got == expected
-        mock_enter.assert_called_once_with(user, got, request.session)
-        mock_signal.assert_called_once_with(
-            signal=workspace_requested,
-            sender=Workspace,
-            user=user,
-        )
-    finally:
-        workspace_requested.disconnect(mock_signal)
-
-
-def test_get_workspace_no_signal(settings: SettingsWrapper, rf: RequestFactory, client: Client) -> None:
-    """Test if :func:`get_workspace` raises exception when there are no signals to respond workspace requests."""
-    del settings.WORKSPACE_MODEL
-
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
-    client.login(username="testuser", passworkd="testpw")
-    request = rf.get("/")
-    request.user = user
-    request.session = client.session
-
-    with pytest.raises(Http404):
-        get_workspace(request)
-
-
-def test_get_workspace_requests_signal_none(settings: SettingsWrapper, rf: RequestFactory, client: Client) -> None:
-    """Test if :func:`get_workspace` raises exception when signal return None."""
-    del settings.WORKSPACE_MODEL
-
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
-    client.login(username="testuser", passworkd="testpw")
-    request = rf.get("/")
-    request.user = user
-    request.session = client.session
-
-    with pytest.raises(Http404):
-        get_workspace(request)
+    mock_resolve.assert_called_once_with(user, request.session)
 
 
 def test_get_workspace_with_header(settings: SettingsWrapper, rf: RequestFactory) -> None:
@@ -170,114 +255,18 @@ def test_aget_workspace_with_session(
 
     user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
     async_to_sync(async_client.alogin)(username="testuser", passworkd="testpw")
-    expected: Workspace = Workspace.objects.create(name="test workspace")
     request = async_rf.get("/")
-
-    async def auser() -> User:
-        return user
-
-    request.auser = auser
+    request.user = user
+    request.auser = mock.AsyncMock(return_value=user)
     request.session = async_client.session
-    request.session[SESSION_KEY] = str(expected.pk)
 
-    got = async_to_sync(aget_workspace)(request)
+    expected: Workspace = Workspace.objects.create(name="test workspace")
+
+    with mock.patch("django_workspaces.aresolve_workspace", return_value=expected) as mock_resolve:
+        got = async_to_sync(aget_workspace)(request)
 
     assert got == expected
-
-
-def test_aget_workspace_with_session_non_existing(
-    settings: SettingsWrapper, async_rf: AsyncRequestFactory, async_client: AsyncClient
-) -> None:
-    """Test if :func:`aget_workspace` raises exception when session workspace does not exist."""
-    del settings.WORKSPACE_MODEL
-
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
-    async_to_sync(async_client.alogin)(username="testuser", passworkd="testpw")
-    request = async_rf.get("/")
-
-    async def auser() -> User:
-        return user
-
-    request.auser = auser
-    request.session = async_client.session
-    request.session[SESSION_KEY] = "0"
-
-    with pytest.raises(Http404):
-        async_to_sync(aget_workspace)(request)
-
-
-def test_aget_workspace_requests_signal(
-    settings: SettingsWrapper, async_rf: AsyncRequestFactory, async_client: AsyncClient
-) -> None:
-    """Test if :func:`aget_workspace` uses requested workspace when there is no workspace in session."""
-    del settings.WORKSPACE_MODEL
-
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
-    async_to_sync(async_client.alogin)(username="testuser", passworkd="testpw")
-    expected: Workspace = Workspace.objects.create(name="test workspace")
-    request = async_rf.get("/")
-
-    async def auser() -> User:
-        return user
-
-    request.auser = auser
-    request.session = async_client.session
-    mock_signal = mock.AsyncMock(return_value=expected)
-
-    workspace_requested.connect(mock_signal)
-    try:
-        with mock.patch("django_workspaces.aenter_workspace") as mock_aenter:
-            got = async_to_sync(aget_workspace)(request)
-
-        assert got == expected
-        mock_aenter.assert_called_once_with(user, got, request.session)
-        mock_signal.assert_awaited_once_with(
-            signal=workspace_requested,
-            sender=Workspace,
-            user=user,
-        )
-    finally:
-        workspace_requested.disconnect(mock_signal)
-
-
-def test_aget_workspace_no_signal(
-    settings: SettingsWrapper, async_rf: AsyncRequestFactory, async_client: AsyncClient
-) -> None:
-    """Test if :func:`aget_workspace` raises exception when there are no signals to respond workspace requests."""
-    del settings.WORKSPACE_MODEL
-
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
-    async_to_sync(async_client.alogin)(username="testuser", passworkd="testpw")
-    request = async_rf.get("/")
-
-    async def auser() -> User:
-        return user
-
-    request.auser = auser
-    request.session = async_client.session
-
-    with pytest.raises(Http404):
-        async_to_sync(aget_workspace)(request)
-
-
-def test_aget_workspace_requests_signal_none(
-    settings: SettingsWrapper, async_rf: AsyncRequestFactory, async_client: AsyncClient
-) -> None:
-    """Test if :func:`aget_workspace` raises exception when signal return None."""
-    del settings.WORKSPACE_MODEL
-
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
-    async_to_sync(async_client.alogin)(username="testuser", passworkd="testpw")
-    request = async_rf.get("/")
-
-    async def auser() -> User:
-        return user
-
-    request.auser = auser
-    request.session = async_client.session
-
-    with pytest.raises(Http404):
-        async_to_sync(aget_workspace)(request)
+    mock_resolve.assert_awaited_once_with(user, request.session)
 
 
 def test_aget_workspace_with_header(settings: SettingsWrapper, async_rf: AsyncRequestFactory) -> None:
@@ -451,6 +440,7 @@ def test_aenter_workspace_request(
     async_to_sync(async_client.alogin)(username="testuser", passworkd="testpw")
     request = async_rf.get("/")
     request.user = user
+    request.auser = mock.AsyncMock(return_value=user)
     request.session = async_client.session
 
     workspace: Workspace = Workspace.objects.create(name="test workspace")
@@ -515,6 +505,7 @@ def test_aenter_workspace_request_permission_denied(
     user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
     request = async_rf.get("/")
     request.user = user
+    request.auser = mock.AsyncMock(return_value=user)
     request.session = async_client.session
     workspace: Workspace = Workspace.objects.create(name="test workspace")
 
@@ -675,6 +666,7 @@ def test_aleave_workspace_request(
     workspace: Workspace = Workspace.objects.create(name="test workspace")
     request = async_rf.get("/")
     request.user = user
+    request.auser = mock.AsyncMock(return_value=user)
     request.session = async_client.session
     request.session[SESSION_KEY] = str(workspace.pk)
     mock_signal = mock.AsyncMock()
@@ -814,6 +806,7 @@ def test_aswitch_workspace_request(
     async_to_sync(async_client.alogin)(username="testuser", passworkd="testpw")
     request = async_rf.get("/")
     request.user = user
+    request.auser = mock.AsyncMock(return_value=user)
     request.session = async_client.session
     workspace: Workspace = Workspace.objects.create(name="test workspace")
 

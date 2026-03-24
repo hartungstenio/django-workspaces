@@ -63,6 +63,23 @@ def _resolve_user_session(
     return cast("AbstractUser | AnonymousUser", obj), session
 
 
+async def _aresolve_user_session(
+    obj: "AbstractUser | AnonymousUser | Mapping[str, Any] | HttpRequest",
+    session: SessionBase | None = None,
+) -> tuple["AbstractUser | AnonymousUser", SessionBase]:
+    if isinstance(obj, HttpRequest):
+        return await obj.auser(), obj.session
+
+    if isinstance(obj, Mapping):
+        return obj["user"], obj["session"]
+
+    if not session:
+        msg = _("You must pass both a user and a session.")
+        raise ValueError(msg)
+
+    return cast("AbstractUser | AnonymousUser", obj), session
+
+
 def _check_object_permission(user: "AbstractUser | AnonymousUser", workspace: _Workspace) -> None:
     if getattr(settings, "WORKSPACE_CHECK_OBJECT_PERMISSIONS", False):
         view_perm = f"{workspace._meta.app_label}.view_{workspace._meta.model_name}"
@@ -106,14 +123,15 @@ def resolve_workspace(user: "AbstractUser | AnonymousUser", session: SessionBase
 
     try:
         workspace_id = Workspace._meta.pk.to_python(session[SESSION_KEY])
-    except KeyError as exc:
+    except KeyError:
         responses = workspace_requested.send(Workspace, user=user)
-        if not responses:
+        try:
+            workspace = next(cast("_Workspace", value) for response in responses if (value := response[1]))
+        except StopIteration as exc:
             msg = "Could not find a workspace"
             raise Http404(msg) from exc
-
-        _, workspace = cast("tuple[Any, _Workspace]", responses[0])
-        enter_workspace(user, workspace, session)
+        else:
+            enter_workspace(user, workspace, session)
     else:
         workspace = get_object_or_404(Workspace, pk=workspace_id)
 
@@ -141,12 +159,13 @@ async def aresolve_workspace(user: "AbstractUser | AnonymousUser", session: Sess
     session_workspace = await session.aget(SESSION_KEY)
     if session_workspace is None:
         responses = await workspace_requested.asend(Workspace, user=user)
-        if not responses:
+        try:
+            workspace = next(cast("_Workspace", value) for response in responses if (value := response[1]))
+        except StopIteration as exc:
             msg = "Could not find a workspace"
-            raise Http404(msg)
-
-        _, workspace = cast("tuple[Any, _Workspace]", responses[0])
-        await aenter_workspace(user, workspace, session)
+            raise Http404(msg) from exc
+        else:
+            await aenter_workspace(user, workspace, session)
     else:
         workspace_id = Workspace._meta.pk.to_python(session_workspace)
         workspace = await aget_object_or_404(Workspace, pk=workspace_id)
@@ -316,7 +335,7 @@ async def aenter_workspace(
         :exc:`django.core.exceptions.PermissionDenied`: if permission validation is enabled
             and the user does not have view permission on the workspace.
     """
-    user, session = _resolve_user_session(obj, session)
+    user, session = await _aresolve_user_session(obj, session)
     await _acheck_object_permission(user, workspace)
     await session.aset(SESSION_KEY, workspace._meta.pk.value_to_string(workspace))
     await workspace_entered.asend(workspace.__class__, user=user, workspace=workspace)
@@ -413,7 +432,7 @@ async def aleave_workspace(
         user: the user leaving the workspace.
         session: the current session.
     """
-    user, session = _resolve_user_session(obj, session)
+    user, session = await _aresolve_user_session(obj, session)
     if await session.ahas_key(SESSION_KEY):
         workspace = await aresolve_workspace(user, session)
         await session.apop(SESSION_KEY)
