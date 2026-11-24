@@ -10,7 +10,7 @@ from django_workspaces.contrib.channels import WorkspaceMiddleware
 
 
 @pytest.mark.asyncio
-class TestWorkspaceMiddleware:  # noqa: D101
+class TestWorkspaceMiddleware:
     async def test_without_session_fails(self) -> None:
         """Teste if requires SessionMiddleware."""
         inner = mock.AsyncMock()
