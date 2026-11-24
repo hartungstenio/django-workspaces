@@ -36,8 +36,9 @@ class WorkspaceMiddleware(BaseMiddleware):
             raise ImproperlyConfigured(msg)
 
         if "workspace" not in scope:
-            scope = dict(scope)
-            scope["workspace"] = await aresolve_workspace(scope["user"], scope["session"])
+            scope_copy: dict[str, Any] = dict(scope)
+            scope_copy["workspace"] = await aresolve_workspace(scope["user"], scope["session"])
+            scope = scope_copy
 
         return await super().__call__(scope, receive, send)  # type: ignore[arg-type]
 

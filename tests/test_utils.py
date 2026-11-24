@@ -1,5 +1,6 @@
 """Tests for module functions."""
 
+# ruff: noqa: S106
 from unittest import mock
 
 import pytest
@@ -9,7 +10,7 @@ from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.test.client import AsyncClient, AsyncRequestFactory, Client, RequestFactory
-from pytest_django.fixtures import SettingsWrapper
+from pytest_django.fixtures import Settings
 
 from django_workspaces import (
     SESSION_KEY,
@@ -33,7 +34,7 @@ from django_workspaces.models import Workspace
 pytestmark = pytest.mark.django_db
 
 
-def test_get_workspace_model_default(settings: SettingsWrapper) -> None:
+def test_get_workspace_model_default(settings: Settings) -> None:
     """Test if :func:'`get_workspace_model` defaults to :class:`Workspace`."""
     del settings.WORKSPACE_MODEL
 
@@ -42,7 +43,7 @@ def test_get_workspace_model_default(settings: SettingsWrapper) -> None:
     assert got is Workspace
 
 
-def test_get_workspace_model_swapped(settings: SettingsWrapper) -> None:
+def test_get_workspace_model_swapped(settings: Settings) -> None:
     """Test if :func:'`get_workspace_model` gets the configured workspace model."""
     settings.INSTALLED_APPS += ["django.contrib.sites"]
     settings.WORKSPACE_MODEL = "sites.Site"
@@ -52,11 +53,11 @@ def test_get_workspace_model_swapped(settings: SettingsWrapper) -> None:
     assert got is apps.get_model("sites", "Site")
 
 
-def test_resolve_workspace_with_session_non_existing(settings: SettingsWrapper, client: Client) -> None:
+def test_resolve_workspace_with_session_non_existing(settings: Settings, client: Client) -> None:
     """Test if :func:`resolve_workspace` raises exception when session workspace does not exist."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     client.login(username="testuser", passworkd="testpw")
     session = client.session
     session[SESSION_KEY] = "0"
@@ -65,11 +66,11 @@ def test_resolve_workspace_with_session_non_existing(settings: SettingsWrapper, 
         resolve_workspace(user, session)
 
 
-def test_resolve_workspace_no_signal(settings: SettingsWrapper, client: Client) -> None:
+def test_resolve_workspace_no_signal(settings: Settings, client: Client) -> None:
     """Test if :func:`resolve_workspace` raises exception when there are no signals to respond workspace requests."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     client.login(username="testuser", passworkd="testpw")
     session = client.session
 
@@ -77,11 +78,11 @@ def test_resolve_workspace_no_signal(settings: SettingsWrapper, client: Client) 
         resolve_workspace(user, session)
 
 
-def test_resolve_workspace_requests_signal(settings: SettingsWrapper, client: Client) -> None:
+def test_resolve_workspace_requests_signal(settings: Settings, client: Client) -> None:
     """Test if :func:`resolve_workspace` uses requested workspace when there is no workspace in session."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     client.login(username="testuser", passworkd="testpw")
     expected: Workspace = Workspace.objects.create(name="test workspace")
     session = client.session
@@ -103,11 +104,11 @@ def test_resolve_workspace_requests_signal(settings: SettingsWrapper, client: Cl
         workspace_requested.disconnect(mock_signal)
 
 
-def test_resolve_workspace_requests_signal_none(settings: SettingsWrapper, client: Client) -> None:
+def test_resolve_workspace_requests_signal_none(settings: Settings, client: Client) -> None:
     """Test if :func:`resolve_workspace` raises exception when signal return None."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     client.login(username="testuser", passworkd="testpw")
     session = client.session
     mock_signal = mock.Mock(return_value=None)
@@ -120,11 +121,11 @@ def test_resolve_workspace_requests_signal_none(settings: SettingsWrapper, clien
         workspace_requested.disconnect(mock_signal)
 
 
-def test_aresolve_workspace_with_session(settings: SettingsWrapper, async_client: AsyncClient) -> None:
+def test_aresolve_workspace_with_session(settings: Settings, async_client: AsyncClient) -> None:
     """Test if :func:`aresolve_workspace` gets the session workspace."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     async_to_sync(async_client.alogin)(username="testuser", passworkd="testpw")
     expected: Workspace = Workspace.objects.create(name="test workspace")
 
@@ -136,11 +137,11 @@ def test_aresolve_workspace_with_session(settings: SettingsWrapper, async_client
     assert got == expected
 
 
-def test_aresolve_workspace_with_session_non_existing(settings: SettingsWrapper, async_client: AsyncClient) -> None:
+def test_aresolve_workspace_with_session_non_existing(settings: Settings, async_client: AsyncClient) -> None:
     """Test if :func:`aresolve_workspace` raises exception when session workspace does not exist."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     async_to_sync(async_client.alogin)(username="testuser", passworkd="testpw")
     session = async_client.session
     session[SESSION_KEY] = "0"
@@ -149,11 +150,11 @@ def test_aresolve_workspace_with_session_non_existing(settings: SettingsWrapper,
         async_to_sync(aresolve_workspace)(user, session)
 
 
-def test_aresolve_workspace_no_signal(settings: SettingsWrapper, async_client: AsyncClient) -> None:
+def test_aresolve_workspace_no_signal(settings: Settings, async_client: AsyncClient) -> None:
     """Test if :func:`aresolve_workspace` raises exception when there are no signals to respond workspace requests."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     async_to_sync(async_client.alogin)(username="testuser", passworkd="testpw")
     session = async_client.session
 
@@ -161,11 +162,11 @@ def test_aresolve_workspace_no_signal(settings: SettingsWrapper, async_client: A
         async_to_sync(aresolve_workspace)(user, session)
 
 
-def test_aresolve_workspace_requests_signal(settings: SettingsWrapper, async_client: AsyncClient) -> None:
+def test_aresolve_workspace_requests_signal(settings: Settings, async_client: AsyncClient) -> None:
     """Test if :func:`aresolve_workspace` uses requested workspace when there is no workspace in session."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     async_to_sync(async_client.alogin)(username="testuser", passworkd="testpw")
     expected: Workspace = Workspace.objects.create(name="test workspace")
     session = async_client.session
@@ -187,11 +188,11 @@ def test_aresolve_workspace_requests_signal(settings: SettingsWrapper, async_cli
         workspace_requested.disconnect(mock_signal)
 
 
-def test_aresolve_workspace_requests_signal_none(settings: SettingsWrapper, async_client: AsyncClient) -> None:
+def test_aresolve_workspace_requests_signal_none(settings: Settings, async_client: AsyncClient) -> None:
     """Test if :func:`aresolve_workspace` raises exception when signal return None."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     async_to_sync(async_client.alogin)(username="testuser", passworkd="testpw")
     session = async_client.session
     mock_signal = mock.AsyncMock(return_value=None)
@@ -204,11 +205,11 @@ def test_aresolve_workspace_requests_signal_none(settings: SettingsWrapper, asyn
         workspace_requested.disconnect(mock_signal)
 
 
-def test_get_workspace_with_session(settings: SettingsWrapper, rf: RequestFactory, client: Client) -> None:
+def test_get_workspace_with_session(settings: Settings, rf: RequestFactory, client: Client) -> None:
     """Test if :func:`get_workspace` gets the session workspace."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     client.login(username="testuser", passworkd="testpw")
     expected: Workspace = Workspace.objects.create(name="test workspace")
     request = rf.get("/")
@@ -223,7 +224,7 @@ def test_get_workspace_with_session(settings: SettingsWrapper, rf: RequestFactor
     mock_resolve.assert_called_once_with(user, request.session)
 
 
-def test_get_workspace_with_header(settings: SettingsWrapper, rf: RequestFactory) -> None:
+def test_get_workspace_with_header(settings: Settings, rf: RequestFactory) -> None:
     """Test if :func:`get_workspace` returns the workspace identified by the request header."""
     del settings.WORKSPACE_MODEL
     settings.WORKSPACE_ID_HEADER = "x-workspace-id"
@@ -236,7 +237,7 @@ def test_get_workspace_with_header(settings: SettingsWrapper, rf: RequestFactory
     assert got == expected
 
 
-def test_get_workspace_with_header_non_existing(settings: SettingsWrapper, rf: RequestFactory) -> None:
+def test_get_workspace_with_header_non_existing(settings: Settings, rf: RequestFactory) -> None:
     """Test if :func:`get_workspace` raises exception when the workspace from the header does not exist."""
     del settings.WORKSPACE_MODEL
     settings.WORKSPACE_ID_HEADER = "x-workspace-id"
@@ -248,12 +249,12 @@ def test_get_workspace_with_header_non_existing(settings: SettingsWrapper, rf: R
 
 
 def test_aget_workspace_with_session(
-    settings: SettingsWrapper, async_rf: AsyncRequestFactory, async_client: AsyncClient
+    settings: Settings, async_rf: AsyncRequestFactory, async_client: AsyncClient
 ) -> None:
     """Test if :func:`aget_workspace` gets the session workspace."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     async_to_sync(async_client.alogin)(username="testuser", passworkd="testpw")
     request = async_rf.get("/")
     request.user = user
@@ -269,7 +270,7 @@ def test_aget_workspace_with_session(
     mock_resolve.assert_awaited_once_with(user, request.session)
 
 
-def test_aget_workspace_with_header(settings: SettingsWrapper, async_rf: AsyncRequestFactory) -> None:
+def test_aget_workspace_with_header(settings: Settings, async_rf: AsyncRequestFactory) -> None:
     """Test if :func:`aget_workspace` returns the workspace identified by the request header."""
     del settings.WORKSPACE_MODEL
     settings.WORKSPACE_ID_HEADER = "x-workspace-id"
@@ -282,7 +283,7 @@ def test_aget_workspace_with_header(settings: SettingsWrapper, async_rf: AsyncRe
     assert got == expected
 
 
-def test_aget_workspace_with_header_non_existing(settings: SettingsWrapper, async_rf: AsyncRequestFactory) -> None:
+def test_aget_workspace_with_header_non_existing(settings: Settings, async_rf: AsyncRequestFactory) -> None:
     """Test if :func:`aget_workspace` raises exception when the workspace from the header does not exist."""
     del settings.WORKSPACE_MODEL
     settings.WORKSPACE_ID_HEADER = "x-workspace-id"
@@ -293,11 +294,11 @@ def test_aget_workspace_with_header_non_existing(settings: SettingsWrapper, asyn
         async_to_sync(aget_workspace)(request)
 
 
-def test_enter_workspace(settings: SettingsWrapper, client: Client) -> None:
+def test_enter_workspace(settings: Settings, client: Client) -> None:
     """Test if :func:`enter_workspace` changes the workspace and dispatch signals."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     workspace: Workspace = Workspace.objects.create(name="test workspace")
     session = client.session
     mock_signal = mock.Mock()
@@ -312,11 +313,11 @@ def test_enter_workspace(settings: SettingsWrapper, client: Client) -> None:
     assert session[SESSION_KEY] == str(workspace.pk)
 
 
-def test_enter_workspace_request(settings: SettingsWrapper, rf: RequestFactory, client: Client) -> None:
+def test_enter_workspace_request(settings: Settings, rf: RequestFactory, client: Client) -> None:
     """Test if :func:`enter_workspace` changes the workspace and dispatch signals."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     client.login(username="testuser", passworkd="testpw")
     request = rf.get("/")
     request.user = user
@@ -335,11 +336,11 @@ def test_enter_workspace_request(settings: SettingsWrapper, rf: RequestFactory, 
     assert request.session[SESSION_KEY] == str(workspace.pk)
 
 
-def test_enter_workspace_scope(settings: SettingsWrapper, client: Client) -> None:
+def test_enter_workspace_scope(settings: Settings, client: Client) -> None:
     """Test if :func:`enter_workspace` changes the workspace and dispatch signals."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     session = client.session
     scope = {"user": user, "session": session}
 
@@ -356,12 +357,12 @@ def test_enter_workspace_scope(settings: SettingsWrapper, client: Client) -> Non
     assert session[SESSION_KEY] == str(workspace.pk)
 
 
-def test_enter_workspace_permission_denied(settings: SettingsWrapper, client: Client) -> None:
+def test_enter_workspace_permission_denied(settings: Settings, client: Client) -> None:
     """Test if :func:`enter_workspace` raises PermissionDenied when permission validation is enabled."""
     del settings.WORKSPACE_MODEL
     settings.WORKSPACE_CHECK_OBJECT_PERMISSIONS = True
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     workspace: Workspace = Workspace.objects.create(name="test workspace")
     session = client.session
 
@@ -374,14 +375,12 @@ def test_enter_workspace_permission_denied(settings: SettingsWrapper, client: Cl
     mock_has_perm.assert_called_once_with("django_workspaces.view_workspace", workspace)
 
 
-def test_enter_workspace_request_permission_denied(
-    settings: SettingsWrapper, rf: RequestFactory, client: Client
-) -> None:
+def test_enter_workspace_request_permission_denied(settings: Settings, rf: RequestFactory, client: Client) -> None:
     """Test if :func:`enter_workspace` raises PermissionDenied when called with a request."""
     del settings.WORKSPACE_MODEL
     settings.WORKSPACE_CHECK_OBJECT_PERMISSIONS = True
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     request = rf.get("/")
     request.user = user
     request.session = client.session
@@ -394,12 +393,12 @@ def test_enter_workspace_request_permission_denied(
         enter_workspace(request, workspace)
 
 
-def test_enter_workspace_scope_permission_denied(settings: SettingsWrapper, client: Client) -> None:
+def test_enter_workspace_scope_permission_denied(settings: Settings, client: Client) -> None:
     """Test if :func:`enter_workspace` raises PermissionDenied when called with a scope."""
     del settings.WORKSPACE_MODEL
     settings.WORKSPACE_CHECK_OBJECT_PERMISSIONS = True
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     session = client.session
     scope = {"user": user, "session": session}
     workspace: Workspace = Workspace.objects.create(name="test workspace")
@@ -411,11 +410,11 @@ def test_enter_workspace_scope_permission_denied(settings: SettingsWrapper, clie
         enter_workspace(scope, workspace)
 
 
-def test_aenter_workspace(settings: SettingsWrapper, async_client: AsyncClient) -> None:
+def test_aenter_workspace(settings: Settings, async_client: AsyncClient) -> None:
     """Test if :func:`aenter_workspace` changes the workspace and dispatch signals."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     workspace: Workspace = Workspace.objects.create(name="test workspace")
     session = async_client.session
     mock_signal = mock.AsyncMock()
@@ -430,13 +429,11 @@ def test_aenter_workspace(settings: SettingsWrapper, async_client: AsyncClient) 
     assert session[SESSION_KEY] == str(workspace.pk)
 
 
-def test_aenter_workspace_request(
-    settings: SettingsWrapper, async_rf: AsyncRequestFactory, async_client: AsyncClient
-) -> None:
+def test_aenter_workspace_request(settings: Settings, async_rf: AsyncRequestFactory, async_client: AsyncClient) -> None:
     """Test if :func:`aenter_workspace` changes the workspace and dispatch signals using a request."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     async_to_sync(async_client.alogin)(username="testuser", passworkd="testpw")
     request = async_rf.get("/")
     request.user = user
@@ -456,11 +453,11 @@ def test_aenter_workspace_request(
     assert request.session[SESSION_KEY] == str(workspace.pk)
 
 
-def test_aenter_workspace_scope(settings: SettingsWrapper, async_client: AsyncClient) -> None:
+def test_aenter_workspace_scope(settings: Settings, async_client: AsyncClient) -> None:
     """Test if :func:`aenter_workspace` changes the workspace and dispatch signals using a scope."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     session = async_client.session
     scope = {"user": user, "session": session}
 
@@ -477,12 +474,12 @@ def test_aenter_workspace_scope(settings: SettingsWrapper, async_client: AsyncCl
     assert session[SESSION_KEY] == str(workspace.pk)
 
 
-def test_aenter_workspace_permission_denied(settings: SettingsWrapper, async_client: AsyncClient) -> None:
+def test_aenter_workspace_permission_denied(settings: Settings, async_client: AsyncClient) -> None:
     """Test if :func:`aenter_workspace` raises PermissionDenied when permission validation is enabled."""
     del settings.WORKSPACE_MODEL
     settings.WORKSPACE_CHECK_OBJECT_PERMISSIONS = True
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     workspace: Workspace = Workspace.objects.create(name="test workspace")
     session = async_client.session
 
@@ -496,13 +493,13 @@ def test_aenter_workspace_permission_denied(settings: SettingsWrapper, async_cli
 
 
 def test_aenter_workspace_request_permission_denied(
-    settings: SettingsWrapper, async_rf: AsyncRequestFactory, async_client: AsyncClient
+    settings: Settings, async_rf: AsyncRequestFactory, async_client: AsyncClient
 ) -> None:
     """Test if :func:`aenter_workspace` raises PermissionDenied when called with a request."""
     del settings.WORKSPACE_MODEL
     settings.WORKSPACE_CHECK_OBJECT_PERMISSIONS = True
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     request = async_rf.get("/")
     request.user = user
     request.auser = mock.AsyncMock(return_value=user)
@@ -516,12 +513,12 @@ def test_aenter_workspace_request_permission_denied(
         async_to_sync(aenter_workspace)(request, workspace)
 
 
-def test_aenter_workspace_scope_permission_denied(settings: SettingsWrapper, async_client: AsyncClient) -> None:
+def test_aenter_workspace_scope_permission_denied(settings: Settings, async_client: AsyncClient) -> None:
     """Test if :func:`aenter_workspace` raises PermissionDenied when called with a scope."""
     del settings.WORKSPACE_MODEL
     settings.WORKSPACE_CHECK_OBJECT_PERMISSIONS = True
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     session = async_client.session
     scope = {"user": user, "session": session}
     workspace: Workspace = Workspace.objects.create(name="test workspace")
@@ -533,11 +530,11 @@ def test_aenter_workspace_scope_permission_denied(settings: SettingsWrapper, asy
         async_to_sync(aenter_workspace)(scope, workspace)  # type: ignore[arg-type]
 
 
-def test_leave_workspace(settings: SettingsWrapper, client: Client) -> None:
+def test_leave_workspace(settings: Settings, client: Client) -> None:
     """Test if :func:`leave_workspace` clears the workspace and dispatch signals."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     workspace: Workspace = Workspace.objects.create(name="test workspace")
     session = client.session
     session[SESSION_KEY] = str(workspace.pk)
@@ -553,11 +550,11 @@ def test_leave_workspace(settings: SettingsWrapper, client: Client) -> None:
     assert SESSION_KEY not in session
 
 
-def test_leave_workspace_without_workspace(settings: SettingsWrapper, client: Client) -> None:
+def test_leave_workspace_without_workspace(settings: Settings, client: Client) -> None:
     """Test if :func:`leave_workspace` does nothing when no workspace is set."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     session = client.session
     session.pop(SESSION_KEY, None)
     mock_signal = mock.Mock()
@@ -572,11 +569,11 @@ def test_leave_workspace_without_workspace(settings: SettingsWrapper, client: Cl
     assert SESSION_KEY not in session
 
 
-def test_leave_workspace_request(settings: SettingsWrapper, rf: RequestFactory, client: Client) -> None:
+def test_leave_workspace_request(settings: Settings, rf: RequestFactory, client: Client) -> None:
     """Test if :func:`leave_workspace` clears the workspace and dispatch signals using a request."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     client.login(username="testuser", passworkd="testpw")
     workspace: Workspace = Workspace.objects.create(name="test workspace")
     request = rf.get("/")
@@ -595,11 +592,11 @@ def test_leave_workspace_request(settings: SettingsWrapper, rf: RequestFactory, 
     assert SESSION_KEY not in request.session
 
 
-def test_leave_workspace_scope(settings: SettingsWrapper, client: Client) -> None:
+def test_leave_workspace_scope(settings: Settings, client: Client) -> None:
     """Test if :func:`leave_workspace` clears the workspace and dispatch signals using a scope."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     workspace: Workspace = Workspace.objects.create(name="test workspace")
     session = client.session
     session[SESSION_KEY] = str(workspace.pk)
@@ -616,11 +613,11 @@ def test_leave_workspace_scope(settings: SettingsWrapper, client: Client) -> Non
     assert SESSION_KEY not in session
 
 
-def test_aleave_workspace(settings: SettingsWrapper, async_client: AsyncClient) -> None:
+def test_aleave_workspace(settings: Settings, async_client: AsyncClient) -> None:
     """Test if :func:`aleave_workspace` clears the workspace and dispatch signals."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     workspace: Workspace = Workspace.objects.create(name="test workspace")
     session = async_client.session
     session[SESSION_KEY] = str(workspace.pk)
@@ -636,11 +633,11 @@ def test_aleave_workspace(settings: SettingsWrapper, async_client: AsyncClient) 
     assert SESSION_KEY not in session
 
 
-def test_aleave_workspace_without_workspace(settings: SettingsWrapper, async_client: AsyncClient) -> None:
+def test_aleave_workspace_without_workspace(settings: Settings, async_client: AsyncClient) -> None:
     """Test if :func:`aleave_workspace` does nothing when no workspace is set."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     session = async_client.session
     session.pop(SESSION_KEY, None)
     mock_signal = mock.AsyncMock()
@@ -655,13 +652,11 @@ def test_aleave_workspace_without_workspace(settings: SettingsWrapper, async_cli
     assert SESSION_KEY not in session
 
 
-def test_aleave_workspace_request(
-    settings: SettingsWrapper, async_rf: AsyncRequestFactory, async_client: AsyncClient
-) -> None:
+def test_aleave_workspace_request(settings: Settings, async_rf: AsyncRequestFactory, async_client: AsyncClient) -> None:
     """Test if :func:`aleave_workspace` clears the workspace and dispatch signals using a request."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     async_to_sync(async_client.alogin)(username="testuser", passworkd="testpw")
     workspace: Workspace = Workspace.objects.create(name="test workspace")
     request = async_rf.get("/")
@@ -681,11 +676,11 @@ def test_aleave_workspace_request(
     assert SESSION_KEY not in request.session
 
 
-def test_aleave_workspace_scope(settings: SettingsWrapper, async_client: AsyncClient) -> None:
+def test_aleave_workspace_scope(settings: Settings, async_client: AsyncClient) -> None:
     """Test if :func:`aleave_workspace` clears the workspace and dispatch signals using a scope."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     workspace: Workspace = Workspace.objects.create(name="test workspace")
     session = async_client.session
     session[SESSION_KEY] = str(workspace.pk)
@@ -707,13 +702,13 @@ def test_aleave_workspace_scope(settings: SettingsWrapper, async_client: AsyncCl
 def test_switch_workspace(
     mock_enter_workspace: mock.Mock,
     mock_leave_workspace: mock.Mock,
-    settings: SettingsWrapper,
+    settings: Settings,
     client: Client,
 ) -> None:
     """Test if :func:`switch_workspace` leaves the old workspace and enters the new one."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     workspace: Workspace = Workspace.objects.create(name="test workspace")
     session = client.session
 
@@ -728,14 +723,14 @@ def test_switch_workspace(
 def test_switch_workspace_request(
     mock_enter_workspace: mock.Mock,
     mock_leave_workspace: mock.Mock,
-    settings: SettingsWrapper,
+    settings: Settings,
     rf: RequestFactory,
     client: Client,
 ) -> None:
     """Test if :func:`switch_workspace` leaves the old workspace and enters the new one using a request."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     client.login(username="testuser", passworkd="testpw")
     request = rf.get("/")
     request.user = user
@@ -753,13 +748,13 @@ def test_switch_workspace_request(
 def test_switch_workspace_scope(
     mock_enter_workspace: mock.Mock,
     mock_leave_workspace: mock.Mock,
-    settings: SettingsWrapper,
+    settings: Settings,
     client: Client,
 ) -> None:
     """Test if :func:`switch_workspace` leaves the old workspace and enters the new one using a scope."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     scope = {"user": user, "session": client.session}
     workspace: Workspace = Workspace.objects.create(name="test workspace")
 
@@ -774,13 +769,13 @@ def test_switch_workspace_scope(
 def test_aswitch_workspace(
     mock_aenter_workspace: mock.AsyncMock,
     mock_aleave_workspace: mock.AsyncMock,
-    settings: SettingsWrapper,
+    settings: Settings,
     async_client: AsyncClient,
 ) -> None:
     """Test if :func:`aswitch_workspace` leaves the old workspace and enters the new one."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     workspace: Workspace = Workspace.objects.create(name="test workspace")
     session = async_client.session
 
@@ -795,14 +790,14 @@ def test_aswitch_workspace(
 def test_aswitch_workspace_request(
     mock_aenter_workspace: mock.AsyncMock,
     mock_aleave_workspace: mock.AsyncMock,
-    settings: SettingsWrapper,
+    settings: Settings,
     async_rf: AsyncRequestFactory,
     async_client: AsyncClient,
 ) -> None:
     """Test if :func:`aswitch_workspace` leaves the old workspace and enters the new one using a request."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     async_to_sync(async_client.alogin)(username="testuser", passworkd="testpw")
     request = async_rf.get("/")
     request.user = user
@@ -821,13 +816,13 @@ def test_aswitch_workspace_request(
 def test_aswitch_workspace_scope(
     mock_aenter_workspace: mock.AsyncMock,
     mock_aleave_workspace: mock.AsyncMock,
-    settings: SettingsWrapper,
+    settings: Settings,
     async_client: AsyncClient,
 ) -> None:
     """Test if :func:`aswitch_workspace` leaves the old workspace and enters the new one using a scope."""
     del settings.WORKSPACE_MODEL
 
-    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")  # noqa: S106
+    user = User.objects.create(username="testuser", email="test@example.com", password="testpw")
     scope = {"user": user, "session": async_client.session}
     workspace: Workspace = Workspace.objects.create(name="test workspace")
 

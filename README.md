@@ -84,6 +84,7 @@ After adding the middleware, every request has a `workspace` property:
 ```python
 # views.py
 
+
 def dashboard(request):
     workspace = request.workspace  # raises Http404 if none found
     return render(request, "dashboard.html", {"workspace": workspace})
@@ -104,16 +105,19 @@ Use `enter_workspace` to set the active workspace for a user and `leave_workspac
 ```python
 from django_workspaces import enter_workspace, leave_workspace, switch_workspace
 
+
 # Enter a workspace — accepts a request, an ASGI scope, or (user, workspace, session)
 def select_workspace(request, workspace_id):
     workspace = get_object_or_404(Workspace, pk=workspace_id)
     enter_workspace(request, workspace=workspace)
     return redirect("dashboard")
 
+
 # Leave the current workspace
 def deselect_workspace(request):
     leave_workspace(request)
     return redirect("home")
+
 
 # Switch directly from one workspace to another
 def switch(request, workspace_id):
@@ -126,6 +130,7 @@ Async equivalents are available as `aenter_workspace`, `aleave_workspace`, and `
 
 ```python
 from django_workspaces import aenter_workspace, aleave_workspace
+
 
 async def select_workspace(request, workspace_id):
     workspace = await Workspace.objects.aget(pk=workspace_id)
@@ -145,6 +150,7 @@ enter_workspace(request.user, workspace=workspace, session=request.session)
 
 ```python
 from django_workspaces import get_workspace
+
 
 def my_view(request):
     workspace = get_workspace(request)
@@ -180,12 +186,15 @@ Connect to `workspace_requested` to automatically assign a workspace when none i
 
 from django.apps import AppConfig
 
+
 class MyAppConfig(AppConfig):
     name = "myapp"
 
     def ready(self):
         from django_workspaces.signals import workspace_requested
+
         workspace_requested.connect(get_default_workspace)
+
 
 def get_default_workspace(sender, user, **kwargs):
     """Return the first workspace the user has access to."""
@@ -196,6 +205,7 @@ A common use case is persisting the last workspace a user visited, so it can be 
 
 ```python
 # myapp/models.py
+
 
 class WorkspacePreference(models.Model):
     user = models.OneToOneField(
@@ -215,13 +225,16 @@ class WorkspacePreference(models.Model):
 
 from django.apps import AppConfig
 
+
 class MyAppConfig(AppConfig):
     name = "myapp"
 
     def ready(self):
         from django_workspaces.signals import workspace_entered, workspace_requested
+
         workspace_entered.connect(save_last_workspace)
         workspace_requested.connect(restore_last_workspace)
+
 
 def save_last_workspace(sender, user, workspace, **kwargs):
     """Persist the workspace the user just entered."""
@@ -229,6 +242,7 @@ def save_last_workspace(sender, user, workspace, **kwargs):
         user=user,
         defaults={"last_workspace": workspace},
     )
+
 
 def restore_last_workspace(sender, user, **kwargs):
     """Return the last workspace the user visited, if any."""
@@ -248,6 +262,7 @@ To add fields to the workspace, define a custom model and point `WORKSPACE_MODEL
 # myapp/models.py
 
 from django_workspaces.models import AbstractWorkspace
+
 
 class Project(AbstractWorkspace):
     slug = models.SlugField(unique=True)
@@ -297,12 +312,12 @@ from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
 from django_workspaces.contrib.channels.middleware import WorkspaceMiddlewareStack
 
-application = ProtocolTypeRouter({
-    "http": get_asgi_application(),
-    "websocket": WorkspaceMiddlewareStack(
-        URLRouter(websocket_urlpatterns)
-    ),
-})
+application = ProtocolTypeRouter(
+    {
+        "http": get_asgi_application(),
+        "websocket": WorkspaceMiddlewareStack(URLRouter(websocket_urlpatterns)),
+    }
+)
 ```
 
 The workspace is then available on the scope:
@@ -321,15 +336,11 @@ from channels.auth import AuthMiddlewareStack
 from channels.sessions import SessionMiddlewareStack
 from django_workspaces.contrib.channels.middleware import WorkspaceMiddleware
 
-application = ProtocolTypeRouter({
-    "websocket": SessionMiddlewareStack(
-        AuthMiddlewareStack(
-            WorkspaceMiddleware(
-                URLRouter(websocket_urlpatterns)
-            )
-        )
-    ),
-})
+application = ProtocolTypeRouter(
+    {
+        "websocket": SessionMiddlewareStack(AuthMiddlewareStack(WorkspaceMiddleware(URLRouter(websocket_urlpatterns)))),
+    }
+)
 ```
 
 ---
@@ -384,6 +395,7 @@ When using the middleware, import the enhanced request type for accurate type ch
 
 ```python
 from django_workspaces.types import HttpRequest
+
 
 def my_view(request: HttpRequest):
     workspace = request.workspace  # typed as AbstractWorkspace

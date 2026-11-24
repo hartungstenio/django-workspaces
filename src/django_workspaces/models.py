@@ -4,6 +4,8 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from django_stubs_ext.db.models import TypedModelMeta
 
+from ._compat import override
+
 
 class AbstractWorkspace(models.Model):
     """Abstract base class implementing a workspace.
@@ -21,6 +23,7 @@ class AbstractWorkspace(models.Model):
     class Meta(TypedModelMeta):
         abstract = True
 
+    @override
     def __str__(self) -> str:
         """Return a string representation of the workspace."""
         return self.name

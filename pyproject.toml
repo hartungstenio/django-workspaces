@@ -15,7 +15,9 @@ classifiers = [
   "Framework :: Django",
   "Framework :: Django :: 5.2",
   "Framework :: Django :: 6.0",
+  "Framework :: Django :: 6.1",
   "Intended Audience :: Developers",
+  "Natural Language :: English",
   "Operating System :: OS Independent",
   "Programming Language :: Python",
   "Programming Language :: Python :: 3.10",
@@ -23,15 +25,16 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
-  "Natural Language :: English",
   "Topic :: Internet :: WWW/HTTP",
   "Topic :: Software Development :: Libraries :: Application Frameworks",
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Typing :: Typed",
 ]
 dependencies = [
+  "asgiref",
   "django",
   "django-stubs-ext",
   "typing-extensions; python_version<'3.13'",
@@ -45,6 +48,26 @@ Source = "https://github.com/hartungstenio/django-workspaces"
 
 [project.optional-dependencies]
 channels = ["channels"]
+
+[dependency-groups]
+dev = [
+  "coverage[toml] (>=6.5)",
+  "deptry",
+  "pre-commit",
+  "pytest",
+  "pytest-asyncio",
+  "pytest-deadfixtures",
+  "pytest-django",
+  "ruff",
+  { include-group = "types" },
+]
+types = [
+  "django-stubs",
+  "django-stubs-ext",
+  "mypy",
+  "pyrefly",
+  "types-channels",
+]
 
 [build-system]
 requires = ["hatch-vcs", "hatchling"]
@@ -72,27 +95,30 @@ exclude_lines = [
   "if TYPE_CHECKING:",
 ]
 
+[tool.deptry]
+known_first_party = ["django_workspaces"]
+
 [tool.django-stubs]
 django_settings_module = "demo.settings"
+
+[tool.hatch]
+requires-hatch = ">=1.18.0"
+
+[tool.hatch.build.targets.wheel]
+sources = ["src"]
+
+[tool.hatch.build.targets.sdist]
+exclude = ["/.devcontainer", "/.github"]
 
 [tool.hatch.version]
 source = "vcs"
 
 [tool.hatch.envs.default]
-features   = ["channels"]
-dependencies = [
-  "coverage[toml] (>=6.5)",
-  "django-stubs",
-  "mypy",
-  "pytest",
-  "pytest-asyncio",
-  "pytest-deadfixtures",
-  "pytest-django",
-  "types-channels",
-]
+dependency-groups = ["dev"]
+features = ["channels"]
+dependencies = ["types-channels"]
 
 [tool.hatch.envs.default.scripts]
-types = "mypy --install-types --non-interactive {args:src/django_workspaces tests}"
 test = "pytest {args:tests}"
 test-cov = "coverage run -m pytest {args:tests}"
 cov-report = [
@@ -104,15 +130,22 @@ cov = [
   "cov-report",
 ]
 
-[tool.hatch.envs.hatch-test]
-extra-dependencies = ["pytest-asyncio", "pytest-django"]
-features   = ["channels"]
+[tool.hatch.envs.hatch-check-types]
+dependency-groups = ["types"]
 
-[tool.hatch.envs.hatch-test.overrides]
-matrix.django.dependencies = [
-  { value = "django (~=5.2.0)", if = ["5.2"] },
-  { value = "django (~=6.0.0)", if = ["6.0"] },
+[tool.hatch.envs.hatch-check-types.scripts]
+check = [
+  "pyrefly check{env:HATCH_CHECK_TYPES_ARGS:} {args}",
+  "mypy {args}",
 ]
+
+[tool.hatch.envs.hatch-test]
+dependency-groups = ["dev"]
+features = ["channels"]
+extra-dependencies = ["types-channels"]
+
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.10", "3.11", "3.12", "3.13", "3.14", "3.15"]
 
 [[tool.hatch.envs.hatch-test.matrix]]
 django = ["5.2"]
@@ -122,17 +155,37 @@ python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 django = ["6.0"]
 python = ["3.12", "3.13", "3.14"]
 
-[tool.hatch.envs.hatch-static-analysis]
+[[tool.hatch.envs.hatch-test.matrix]]
+django = ["6.1"]
+python = ["3.12", "3.13", "3.14", "3.15"]
+
+[tool.hatch.envs.hatch-test.overrides]
+matrix.django.dependencies = [
+  { value = "django>=5.2,<6.0", if = ["5.2"] },
+  { value = "django>=6.0,<6.1", if = ["6.0"] },
+  { value = "django>=6.1,<6.2", if = ["6.1"] },
+]
+
+[tool.hatch.envs.hatch-check-code]
 config-path = "none"
-dependencies = ["ruff (~=0.15.7)"]
+dependencies = ["ruff"]
 
 [tool.mypy]
 strict = true
+files = ["src"]
 plugins = ["mypy_django_plugin.main"]
+enable_error_code = ["deprecated"]
 
-[tool.pytest.ini_options]
+[tool.pyrefly]
+project-includes = ["src"]
+project-excludes = ["**/migrations"]
+preset = "strict"
+min-severity = "ignore"
+
+[tool.pytest]
 pythonpath = [".", "src"]
 DJANGO_SETTINGS_MODULE = "demo.settings"
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.ruff]
 line-length = 120
@@ -142,68 +195,76 @@ docstring-code-format = true
 
 [tool.ruff.lint]
 select = [
-  "ERA",
-  "ANN",
-  "ASYNC",
-  "S",
-  "BLE",
-  "FBT",
-  "B",
   "A",
-  "COM818",
+  "ANN",
+  "ARG",
+  "ASYNC",
+  "B",
+  "BLE",
   "C4",
-  "DTZ",
-  "T10",
+  "C90",
+  "COM",
+  "D",
   "DJ",
+  "DTZ",
+  "E",
   "EM",
+  "ERA",
   "EXE",
+  "F",
+  "FA",
+  "FBT",
+  "FIX",
+  "FLY",
+  "FURB",
+  "G",
+  "I",
+  "ICN",
+  "INP",
   "INT",
   "ISC",
-  "ICN",
   "LOG",
-  "G",
-  "PIE",
-  "T20",
-  "PYI",
-  "PT",
-  "RSE",
-  "RET",
-  "SLF",
-  "SIM",
-  "SLOT",
-  "TID",
-  "TD",
-  "TC",
-  "PTH",
-  "FLY",
-  "I",
-  "C90",
   "N",
   "PERF",
-  "E",
-  "W",
-  "D",
-  "F",
   "PGH",
+  "PIE",
   "PL",
-  "UP",
-  "FURB",
+  "PT",
+  "PTH",
+  "Q",
+  "RET",
+  "RSE",
   "RUF",
+  "S",
+  "SIM",
+  "SLF",
+  "SLOT",
+  "T10",
+  "T20",
+  "TC",
+  "TD",
+  "TID",
   "TRY",
+  "UP",
+  "W",
+  "YTT",
 ]
-ignore = ["D418"]
+ignore = ["COM812", "SIM105"]
+typing-modules = ["django_workspaces._compat"]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"*/migrations/*" = ["RUF012", "D"]
+"*/models.py" = ["D106"]
+"*/urls.py" = ["D"]
+"tests/*" = ["S101", "D"]
+"demo/*" = ["D"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"
+ignore-decorators = ["typing.overload"]
 
 [tool.ruff.lint.flake8-self]
 ignore-names = ["_default_manager", "_meta"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "parents"
-
-[tool.ruff.lint.per-file-ignores]
-"*/models.py" = ["D106"]
-"*/migrations/*.py" = ["D", "RUF012"]
-"tests/*.py" = ["D104", "S101"]
-"demo/*" = ["D"]

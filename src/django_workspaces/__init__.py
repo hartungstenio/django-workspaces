@@ -27,12 +27,10 @@ django_stubs_ext.monkeypatch()
 __all__ = [
     "aenter_workspace",
     "aget_workspace",
-    "aget_workspace",
     "aleave_workspace",
     "aresolve_workspace",
     "aswitch_workspace",
     "enter_workspace",
-    "get_workspace",
     "get_workspace",
     "get_workspace_model",
     "leave_workspace",
@@ -51,7 +49,7 @@ def _resolve_user_session(
     session: SessionBase | None = None,
 ) -> tuple["AbstractUser | AnonymousUser", SessionBase]:
     if isinstance(obj, HttpRequest):
-        return obj.user, obj.session
+        return cast("AbstractUser | AnonymousUser", obj.user), obj.session
 
     if isinstance(obj, Mapping):
         return obj["user"], obj["session"]
@@ -60,7 +58,7 @@ def _resolve_user_session(
         msg = _("You must pass both a user and a session.")
         raise ValueError(msg)
 
-    return cast("AbstractUser | AnonymousUser", obj), session
+    return obj, session
 
 
 async def _aresolve_user_session(
@@ -68,7 +66,7 @@ async def _aresolve_user_session(
     session: SessionBase | None = None,
 ) -> tuple["AbstractUser | AnonymousUser", SessionBase]:
     if isinstance(obj, HttpRequest):
-        return await obj.auser(), obj.session
+        return cast("AbstractUser | AnonymousUser", await obj.auser()), obj.session
 
     if isinstance(obj, Mapping):
         return obj["user"], obj["session"]
@@ -77,7 +75,7 @@ async def _aresolve_user_session(
         msg = _("You must pass both a user and a session.")
         raise ValueError(msg)
 
-    return cast("AbstractUser | AnonymousUser", obj), session
+    return obj, session
 
 
 def _check_object_permission(user: "AbstractUser | AnonymousUser", workspace: _Workspace) -> None:
@@ -186,7 +184,7 @@ def get_workspace(request: HttpRequest) -> _Workspace:
     ):
         return get_object_or_404(get_workspace_model(), pk=workspace_id)
 
-    return resolve_workspace(request.user, request.session)
+    return resolve_workspace(cast("AbstractUser | AnonymousUser", request.user), request.session)
 
 
 async def aget_workspace(request: HttpRequest) -> _Workspace:
@@ -202,7 +200,7 @@ async def aget_workspace(request: HttpRequest) -> _Workspace:
     ):
         return await aget_object_or_404(get_workspace_model(), pk=workspace_id)
 
-    user: AbstractUser | AnonymousUser = await request.auser()
+    user: AbstractUser | AnonymousUser = cast("AbstractUser | AnonymousUser", await request.auser())
     return await aresolve_workspace(user, request.session)
 
 

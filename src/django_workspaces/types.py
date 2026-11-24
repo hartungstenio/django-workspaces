@@ -13,7 +13,7 @@ _Workspace: TypeAlias = "AbstractWorkspace"
 
 The mypy plugin will refine it someday."""
 
-_WorkspaceModel: TypeAlias = type[_Workspace]  # noqa: PYI047
+_WorkspaceModel: TypeAlias = type[_Workspace]
 
 
 class HttpRequest(DjangoHttpRequest):

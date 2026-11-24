@@ -19,7 +19,7 @@ from django_workspaces.middleware import workspace_middleware
 def get_response() -> Callable[[HttpRequest], HttpResponseBase]:
     """Return a dummy sync get_response function."""
 
-    def middleware(request: HttpRequest, /) -> HttpResponse:
+    def middleware(_request: HttpRequest, /) -> HttpResponse:
         return HttpResponse()
 
     return middleware
@@ -29,7 +29,7 @@ def get_response() -> Callable[[HttpRequest], HttpResponseBase]:
 def get_response_async() -> Callable[[HttpRequest], Awaitable[HttpResponseBase]]:
     """Return a dummy async get_response function."""
 
-    async def middleware(request: HttpRequest, /) -> HttpResponse:
+    async def middleware(_request: HttpRequest, /) -> HttpResponse:
         return HttpResponse()
 
     return middleware
